@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <title>love you ♡</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        min-height: 100dvh;
+        font-family: "Microoft "Microsoft YaHei ", "PingFang SC", sans-serif;
+        overflow: hidden;
+        background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.8), transparent 25%),
+        radial-gradient(circle at 80% 30%, rgba(255, 220, 235, 0.8), transparent 30%),
+        linear-gradient(135deg, #ffe6ee, #fff4f7, #ffdce9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+      }
+
+      /*页面*/
+      .page{
+        position: absolute;
+        width: 100%;
+        min-height: 100vh;
+
+        display: none;
+        align-items: center;
+        justify-content: center;
+
+
+
+
+      }
+
+      /*当前显示页面*/
+      .page.active{
+        display: flex !important;
+        opacity: 1 !important;
+        visibility: visible;!important;
+        pointer-events: auto;!important;
+        position: relative;!important;
+        z-index: 9999 !important;
+
+
+      }
+
+      /* 第一页 */
+      .capsule{
+        width: 88%;
+        max-width: 420px;
+        padding: 55px 30px;
+        text-align: center;
+        background: rgba(255,255,255,0.75);
+        border-radius: 32px;
+        box-shadow: 0 20px 60px rgba(220,120,160,0.18);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.8);
+      }
+
+      .small-heart {
+        font-size: 45px;
+        margin-bottom: 20px;
+        animation: heartbeat 2s infinite;
+      }
+      @keyframes heartbeat {
+        0%,100%{
+          transform: scale(1);
+        }
+        50%{
+          transform: scale(1.12);
+        }
+      }
+
+      .capsule h1{
+        font-size: 26px;
+        color: #d86f98;
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
+
+      .capsule p{
+        font-size: 15px;
+        color: #9b7180;
+        line-height: 2;
+        margin-bottom: 35px;
+      }
+
+      .open-button{
+        border: none;
+        padding: 15px 38px;
+        border-radius: 50px;
+        font-size: 16px;
+        cursor: pointer;
+        color: white;
+        background: linear-gradient(135deg,#f6a6bd,#e889a8);
+        box-shadow: 0 8px 20px rgba(225,120,155,0.35);
+        transition: 0.3s;
+      }
+
+      .open-button:hover{
+        transform: translateY(-3px)scale(0.97);
+      }
+
+      /*第二页*/
+
+      .memory-card{
+        width: 88%;
+        max-width: 430px;
+        padding:40px 28px;
+        text-align: center;
+        background: rgba(255,255,255,0.82);
+        border-radius: 30px;
+        box-shadow: 0 25px 70px rgba(220,120,160,0.2);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255,255,255,0.9);
+      }
+
+      .top-decoration{
+        font-size: 30px;
+        margin-bottom: 20px;
+      }
+
+      .memory-card h2{
+        color: #d86f98;
+        font-size: 24px;
+        font-weight: 500;
+        margin-bottom: 15px;
+      }
+
+      .memory-text{
+        color: #a27b89;
+        font-size: 14px;
+        line-height: 2;
+        margin-bottom: 35px;
+      }
+
+      /*唱片*/
+      .record-wrapper{
+        width: 170px;
+        height: 170px;
+        margin: 0 auto 35px;
+        position: relative;
+        cursor: grab;
+        transition: transform 0.3s ease;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        -webkit-touch-callout: none;
+      }
+      .record-wrapper:active{
+        cursor: grabbing;
+      }
+      .record{
+        width: 170px;
+        height: 170px;
+        margin: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        background: repeating-radial-gradient(
+        circle,#e89ab3 0px,#e89ab3 3px,#df88a6 4px,#df88a6 7px
+        );
+        box-shadow: 0 10px 30px rgba(200,100,140,0.25);
+      }
+
+      .record::before{
+        content: "";
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        background: linear-gradient(135deg,#ffe8d5,#f7aec4);
+        position: absolute;
+      }
+
+      .record::after{
+        content: "♡";
+        position: absolute;
+        font-size: 24px;
+        color: white;
+        z-index: 2;
+      }
+
+      .spinning{
+        animation: spin 6s linear infinite;
+      }
+      @keyframes spin {
+        from {
+          transform: rotate(360deg);
+        }
+      }
+
+      /*播放按钮*/
+      .play-button{
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        font-size: 28px;
+        color: white;
+        background: linear-gradient(135deg,#f5a1bb,#e77f9f);
+        box-shadow: 0 10px 25px rgba(220,100,145,0.35);
+        transition: 0.3s;
+        margin-bottom: 28px;
+      }
+
+      .play-button:hover{
+        transform: scale(1.08);
+      }
+
+      .play-button:active{
+        transform: scale(0.94);
+      }
+
+      /*进度条*/
+      .progress-container{
+        width: 100%;
+        height: 6px;
+        border-radius: 10px;
+        background: #f7d6e0;
+        cursor: pointer;
+        overflow: hidden;
+        margin-bottom: 14px;
+      }
+
+      .progress{
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg,#f3a0b9,#df7f9f);
+        border-radius: 10px;
+      }
+
+
+      /*时间*/
+      .time{
+        display: flex;
+        justify-content: space-between;
+        color: #b48796;
+        font-size: 12px;
+      }
+
+      .date{
+        margin-top: 30px;
+        font-size: 12px;
+        color: #c59aa9;
+      }
+
+      /*NFC写入按钮*/
+      .nfc-button{
+        margin-top: 18px;
+        border: none;
+        padding: 11px 28px;
+        border-radius: 50px;
+        font-size: 13px;
+        cursor: pointer;
+        color: white;
+        background: linear-gradient(135deg,#f6a6bd,#e889a8);
+        box-shadow: 0 6px 16px rgba(225,120,155,0.3);
+        transition: 0.3s;
+      }
+      .nfc-button:hover{
+        transform: translateY(-2px);
+      }
+      .nfc-button:active{
+        transform: scale(0.96);
+      }
+
+      /*漂浮元素*/
+      .floating{
+        position: absolute;
+        color: rgba(255,150,185,0.35);
+        animation: float 12s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      .f1{ top: 6%; left: 8%; font-size: 34px; animation-delay: 0s; }
+      .f2{ top: 12%; right: 10%; font-size: 26px; animation-delay: 1.5s; }
+      .f3{ top: 22%; left: 4%; font-size: 23px; animation-delay: 3s; }
+      .f4{ top: 18%; right: 28%; font-size: 31px; animation-delay: 0.8s; }
+      .f5{ top: 35%; left: 14%; font-size: 29px; animation-delay: 2.2s; }
+      .f6{ top: 40%; right: 6%; font-size: 36px; animation-delay: 4s; }
+      .f7{ top: 50%; left: 28%; font-size: 21px; animation-delay: 1s; }
+      .f8{ top: 55%; right: 18%; font-size: 26px; animation-delay: 3.5s; }
+      .f9{ top: 65%; left: 8%; font-size: 39px; animation-delay: 0.5s; }
+      .f10{ top: 70%; right: 12%; font-size: 31px; animation-delay: 2.8s; }
+      .f11{ top: 4%; left: 42%; font-size: 23px; animation-delay: 5s; }
+      .f12{ top: 30%; left: 48%; font-size: 26px; animation-delay: 1.8s; }
+      .f13{ top: 78%; left: 40%; font-size: 29px; animation-delay: 4.2s; }
+      .f14{ top: 60%; right: 35%; font-size: 21px; animation-delay: 0.3s; }
+      .f15{ bottom: 6%; left: 22%; font-size: 34px; animation-delay: 3.2s; }
+      .f16{ top: 8%; right: 42%; font-size: 26px; animation-delay: 2.5s; }
+
+      @keyframes float {
+        0%,100%{
+          transform: translateY(0px) rotate(0deg);
+        }
+        50%{
+          transform: translateY(-22px) rotate(8deg);
+        }
+      }
+
+      /*移动端适配*/
+      @media (max-width: 430px) {
+        .capsule{
+          padding: 40px 22px;
+        }
+        .capsule h1{
+          font-size: 22px;
+        }
+        .capsule p{
+          font-size: 14px;
+          line-height: 1.9;
+        }
+        .open-button{
+          padding: 13px 34px;
+          font-size: 15px;
+        }
+
+        .memory-card{
+          padding: 30px 20px;
+        }
+        .memory-card h2{
+          font-size: 20px;
+        }
+        .memory-text{
+          font-size: 13px;
+        }
+        .record{
+          width: 140px;
+          height: 140px;
+        }
+        .record-wrapper{
+          width: 140px;
+          height: 140px;
+        }
+        .record::before{
+          width: 52px;
+          height: 52px;
+        }
+        .play-button{
+          width: 64px;
+          height: 64px;
+          font-size: 24px;
+        }
+        .progress-container{
+          height: 5px;
+        }
+        .time{
+          font-size: 11px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+
+  <!--背景-->
+
+  <div class="floating f1">❤</div>
+  <div class="floating f2">✨</div>
+  <div class="floating f3">💌</div>
+  <div class="floating f4">💕</div>
+  <div class="floating f5">💗</div>
+  <div class="floating f6">🌸</div>
+  <div class="floating f7">💖</div>
+  <div class="floating f8">🎀</div>
+  <div class="floating f9">💝</div>
+  <div class="floating f10">🦋</div>
+  <div class="floating f11">🌷</div>
+  <div class="floating f12">💞</div>
+  <div class="floating f13">🩷</div>
+  <div class="floating f14">🍓</div>
+  <div class="floating f15">🧁</div>
+  <div class="floating f16">💮</div>
+
+  <!--第一页-->
+
+  <div class="page active" id="page1">
+    <div class="capsule">
+      <div class="small-heart">૮ต•̤ ༝ •̤ตა</div>
+
+      <h1>
+        surprise❤
+      </h1>
+
+      <P>
+        亲爱的宝宝<br>
+        感到幸福的瞬间是你在身边<br>
+        希望我的声音可以一直陪伴你
+      </P>
+
+      <button class="open-button" onclick="openMemory()">
+        打开♡
+      </button>
+    </div>
+  </div>
+
+  <!--第二页-->
+  <div
+    class="page" id="page2">
+  <div class="memory-card">
+    <div class="top-decoration">
+     左众
+    </div>
+
+    <h2>
+      ZZ&HLM
+    </h2>
+
+    <P class="memory-text">
+      如果你现在在听<br>
+      那么这一刻 我爱你
+    </P>
+
+
+    <!--唱片-->
+    <div class="record-wrapper" id="recordWrapper">
+      <div class="record" id="record">
+      </div>
+    </div>
+
+    <!--播放按键-->
+    <button class="play-button"id="playButton">
+     qwq
+    </button>
+
+    <!--进度条-->
+    <div class="progress-container"id="progressContainer">
+      <div class="progress"id="progress">
+      </div>
+    </div>
+
+    <!--时间-->
+    <div class="time">
+      <span id="currentTime">
+        0:00
+      </span>
+      <span id="duration">
+        0:00
+      </span>
+    </div>
+
+    <div class="date">
+      生日快乐
+    </div>
+
+    <button class="nfc-button" onclick="writeNFC()">
+      写入 NFC 卡片
+    </button>
+  </div>
+
+  <!--音频-->
+  <audio
+    id="audio" src="voice.mp3">
+  </audio>
+
+  <script>
+    const audio = document .getElementById("audio");
+    const playButton=document .getElementById("playButton");
+    const record=document .getElementById("record");
+    const progress=document .getElementById("progress");
+    const progressContainer=document .getElementById("progressContainer");
+    const currenTime=document .getElementById("currentTime");
+    const duration=document.getElementById("duration");
+
+    /*唱片滑动切音频*/
+    const recordWrapper = document.getElementById("recordWrapper");
+    const audioSources = ["voice.mp3", "voice.mp3"];
+    let currentAudioIndex = 0;
+    let swipeStartX = 0;
+    let swipeCurrentX = 0;
+    let isSwiping = false;
+    const SWIPE_THRESHOLD = 60;
+    let maxSwipeDistance = 80;
+
+    function calcSwipeBoundary() {
+      var card = document.querySelector(".memory-card");
+      var wrapper = document.getElementById("recordWrapper");
+      if (!card || !wrapper) return 80;
+      var cardRect = card.getBoundingClientRect();
+      var wrapperRect = wrapper.getBoundingClientRect();
+      var maxDist = (cardRect.width - wrapperRect.width) / 2;
+      return Math.max(20, maxDist);
+    }
+
+    function getSwipeX(e) {
+      return e.touches ? e.touches[0].clientX : e.clientX;
+    }
+
+    function switchAudio(index) {
+      currentAudioIndex = index;
+      audio.pause();
+      audio.src = audioSources[index];
+      audio.load();
+      audio.play().catch(function(){});
+      playButton.innerHTML = "Ⅱ";
+      record.classList.add("spinning");
+      progress.style.width = "0%";
+      currenTime.innerHTML = "0:00";
+    }
+
+    function handleSwipeEnd(deltaX) {
+      recordWrapper.style.transition = "transform 0.3s ease";
+      if (Math.abs(deltaX) < SWIPE_THRESHOLD) {
+        recordWrapper.style.transform = "translateX(0)";
+        return;
+      }
+      if (deltaX < 0) {
+        switchAudio((currentAudioIndex + 1) % audioSources.length);
+      } else {
+        switchAudio((currentAudioIndex - 1 + audioSources.length) % audioSources.length);
+      }
+      recordWrapper.style.transform = "translateX(0)";
+    }
+
+    recordWrapper.addEventListener("touchstart", function(e) {
+      swipeStartX = getSwipeX(e);
+      isSwiping = true;
+      maxSwipeDistance = calcSwipeBoundary();
+      recordWrapper.style.transition = "none";
+    }, { passive: true });
+    recordWrapper.addEventListener("touchmove", function(e) {
+      if (!isSwiping) return;
+      e.preventDefault();
+      var delta = getSwipeX(e) - swipeStartX;
+      swipeCurrentX = Math.max(-maxSwipeDistance, Math.min(maxSwipeDistance, delta));
+      recordWrapper.style.transform = "translateX(" + swipeCurrentX + "px)";
+    }, { passive: false });
+    recordWrapper.addEventListener("touchend", function() {
+      if (!isSwiping) return;
+      isSwiping = false;
+      handleSwipeEnd(swipeCurrentX);
+      swipeCurrentX = 0;
+    });
+
+    recordWrapper.addEventListener("mousedown", function(e) {
+      swipeStartX = getSwipeX(e);
+      isSwiping = true;
+      maxSwipeDistance = calcSwipeBoundary();
+      recordWrapper.style.transition = "none";
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", function(e) {
+      if (!isSwiping) return;
+      var delta = getSwipeX(e) - swipeStartX;
+      swipeCurrentX = Math.max(-maxSwipeDistance, Math.min(maxSwipeDistance, delta));
+      recordWrapper.style.transform = "translateX(" + swipeCurrentX + "px)";
+    });
+    document.addEventListener("mouseup", function() {
+      if (!isSwiping) return;
+      isSwiping = false;
+      handleSwipeEnd(swipeCurrentX);
+      swipeCurrentX = 0;
+    });
+
+    /*打开纪念页面*/
+    function  openMemory(){
+      document .getElementById("page1") .classList .remove("active");
+      document .getElementById("page2") .classList .add("active");
+    }
+
+    /*播放 暂停*/
+
+    playButton .addEventListener("click",()=> {
+      if (
+              audio.paused
+      ) {
+        audio.play();
+        playButton.innerHTML = "Ⅱ";
+        record.classList.add("spinning");
+      } else {
+        audio.pause();
+        playButton.innerHTML = "qwq";
+        record.classList.remove("spinning");
+      }
+    }
+    );
+
+    /*更新进度*/
+    audio.addEventListener("timeupdate",
+            ()=>{
+      const percentage = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+      progress.style.width = percentage + "%";
+      currenTime .innerHTML=formatTime(
+              audio.currentTime
+      );
+            }
+    );
+
+/*音频总长度*/
+    audio.addEventListener("loadedmetadata",()=>{
+      duration.innerHTML=formatTime(
+              audio.duration
+      );
+    }
+    )
+    /*点击进度条跳转*/
+    progressContainer.addEventListener(
+            "click",(e)=>{
+              const width=progressContainer.clientWidth;
+              const clickX=e.offsetX;
+              audio.currentTime=(
+                      clickX/width
+              )
+              * audio.duration;
+            }
+    );
+
+    /*播放结束*/
+    audio.addEventListener("ended",()=>{
+      playButton.innerHTML="qwq";
+      record.classList.remove(
+              "spinning"
+      );
+    });
+
+    /*时间格式*/
+    function formatTime(seconds){
+      if (
+              isNaN(seconds)
+      ){
+        return "00:00";
+      }
+      const minutes= Math.floor(seconds/60);
+      const remainingSeconds=Math.floor(seconds % 60);
+      return minutes + ":" + remainingSeconds.toString().padStart(2,"0");
+    }
+
+    /*写入NFC卡片*/
+    async function writeNFC() {
+      if (!("NDEFReader" in window)) {
+        alert("当前浏览器不支持 NFC 写入，请用安卓手机的 Chrome 或 Edge 打开此页面");
+        return;
+      }
+      try {
+        const ndef = new NDEFReader();
+        await ndef.write({
+          records: [{
+            recordType: "url",
+            data: window.location.href
+          }]
+        });
+        alert("写入成功！现在用手机碰这张卡片就能打开这个页面啦");
+      } catch (err) {
+        alert("写入失败：" + err.message + "\n\n请确保：\n1. 手机已开启 NFC\n2. 将 NFC 卡片贴近手机背面顶部");
+      }
+    }
+
+  </script>
+  </body>
+</html>
