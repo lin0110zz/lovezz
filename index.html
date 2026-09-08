@@ -399,6 +399,306 @@
         .nfc-button{
           margin-top: 12px;
         }
+        .playlist-bar{
+          padding: 6px 14px;
+          font-size: 12px;
+          gap: 6px;
+        }
+        .playlist-content{
+          max-height: 75vh;
+        }
+        .mode-btn .mode-icon{
+          font-size: 16px;
+        }
+        .mode-btn .mode-text{
+          font-size: 10px;
+        }
+      }
+
+      /*播放列表入口栏*/
+      .playlist-bar{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin: 0 auto 14px;
+        padding: 8px 18px;
+        background: rgba(255, 235, 240, 0.7);
+        border-radius: 20px;
+        font-size: 13px;
+        color: #c59aa9;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        width: fit-content;
+        user-select: none;
+      }
+      .playlist-bar:hover{
+        background: rgba(255, 220, 230, 0.9);
+        color: #d86f98;
+      }
+      .playlist-bar-icon{
+        font-size: 15px;
+      }
+      .playlist-bar-title{
+        font-weight: 600;
+        color: #d86f98;
+      }
+      .playlist-bar-count{
+        color: #b48796;
+        font-size: 12px;
+      }
+      .playlist-bar-mode{
+        padding: 2px 8px;
+        background: #f7aec4;
+        color: white;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      /*播放列表面板*/
+      .playlist-panel{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        display: none;
+      }
+      .playlist-panel.show{
+        display: block;
+      }
+      .playlist-mask{
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+      }
+      .playlist-content{
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-height: 70vh;
+        background: #fff5f7;
+        border-radius: 20px 20px 0 0;
+        display: flex;
+        flex-direction: column;
+        animation: slideUp 0.3s ease;
+      }
+      @keyframes slideUp{
+        from{ transform: translateY(100%); }
+        to{ transform: translateY(0); }
+      }
+      .playlist-header{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px 12px;
+        border-bottom: 1px solid #ffe0e8;
+      }
+      .playlist-title{
+        font-size: 17px;
+        font-weight: 700;
+        color: #d86f98;
+      }
+      .playlist-close{
+        font-size: 18px;
+        color: #c59aa9;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .playlist-modes{
+        display: flex;
+        gap: 8px;
+        padding: 12px 20px;
+        border-bottom: 1px solid #ffe0e8;
+      }
+      .mode-btn{
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 8px 4px;
+        border: none;
+        background: transparent;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .mode-btn .mode-icon{
+        font-size: 18px;
+      }
+      .mode-btn .mode-text{
+        font-size: 11px;
+        color: #b48796;
+      }
+      .mode-btn.active{
+        background: #f7aec4;
+      }
+      .mode-btn.active .mode-text{
+        color: white;
+        font-weight: 600;
+      }
+      .playlist-items{
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
+      }
+      .playlist-item{
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .playlist-item:hover{
+        background: rgba(247, 174, 196, 0.15);
+      }
+      .playlist-item.playing{
+        background: rgba(247, 174, 196, 0.2);
+      }
+      .playlist-item.playing .item-index{
+        color: #d86f98;
+        font-weight: 700;
+      }
+      .playlist-item.playing .item-name{
+        color: #d86f98;
+        font-weight: 600;
+      }
+      .item-index{
+        width: 28px;
+        font-size: 14px;
+        color: #c59aa9;
+        text-align: center;
+      }
+      .item-name{
+        flex: 1;
+        font-size: 14px;
+        color: #7a5c68;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .item-remove{
+        font-size: 14px;
+        color: #d4b5c0;
+        padding: 4px 10px;
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+      .item-remove:hover{
+        color: #d86f98;
+      }
+      .playlist-footer{
+        padding: 12px 20px 16px;
+        border-top: 1px solid #ffe0e8;
+      }
+      .add-song-btn{
+        width: 100%;
+        padding: 10px;
+        border: 1px dashed #f7aec4;
+        background: transparent;
+        color: #d86f98;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .add-song-btn:hover{
+        background: rgba(247, 174, 196, 0.1);
+      }
+
+      /*添加歌曲弹窗*/
+      .add-song-modal{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .add-song-modal.show{
+        display: flex;
+      }
+      .add-song-mask{
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+      }
+      .add-song-content{
+        position: relative;
+        width: 85%;
+        max-width: 360px;
+        max-height: 60vh;
+        background: #fff5f7;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        animation: popIn 0.25s ease;
+      }
+      @keyframes popIn{
+        from{ transform: scale(0.9); opacity: 0; }
+        to{ transform: scale(1); opacity: 1; }
+      }
+      .add-song-header{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        border-bottom: 1px solid #ffe0e8;
+        font-size: 16px;
+        font-weight: 700;
+        color: #d86f98;
+      }
+      .add-song-close{
+        font-size: 16px;
+        color: #c59aa9;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .add-song-list{
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
+      }
+      .add-song-item{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 18px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .add-song-item:hover{
+        background: rgba(247, 174, 196, 0.15);
+      }
+      .add-song-item.disabled{
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .add-item-name{
+        font-size: 14px;
+        color: #7a5c68;
+      }
+      .add-item-status{
+        font-size: 12px;
+        color: #d86f98;
+        font-weight: 600;
+      }
+      .add-song-item.disabled .add-item-status{
+        color: #c59aa9;
       }
     </style>
   </head>
@@ -478,6 +778,14 @@
      qwq
     </button>
 
+    <!--播放列表入口栏-->
+    <div class="playlist-bar" id="playlistBar">
+      <span class="playlist-bar-icon">☰</span>
+      <span class="playlist-bar-title">播放列表</span>
+      <span class="playlist-bar-count" id="playlistCount">5首</span>
+      <span class="playlist-bar-mode" id="playlistModeIcon">顺序</span>
+    </div>
+
     <!--进度条-->
     <div class="progress-container"id="progressContainer">
       <div class="progress"id="progress">
@@ -501,6 +809,47 @@
     <button class="nfc-button" onclick="writeNFC()">
       写入 NFC 卡片
     </button>
+
+    <!--播放列表面板-->
+    <div class="playlist-panel" id="playlistPanel">
+      <div class="playlist-mask" id="playlistMask"></div>
+      <div class="playlist-content">
+        <div class="playlist-header">
+          <span class="playlist-title">播放列表</span>
+          <span class="playlist-close" id="playlistClose">✕</span>
+        </div>
+        <div class="playlist-modes">
+          <button class="mode-btn active" data-mode="order">
+            <span class="mode-icon">☰</span><span class="mode-text">顺序</span>
+          </button>
+          <button class="mode-btn" data-mode="repeat-list">
+            <span class="mode-icon">🔁</span><span class="mode-text">列表循环</span>
+          </button>
+          <button class="mode-btn" data-mode="repeat-one">
+            <span class="mode-icon">🔂</span><span class="mode-text">单曲</span>
+          </button>
+          <button class="mode-btn" data-mode="shuffle">
+            <span class="mode-icon">🔀</span><span class="mode-text">随机</span>
+          </button>
+        </div>
+        <div class="playlist-items" id="playlistItems"></div>
+        <div class="playlist-footer">
+          <button class="add-song-btn" id="addSongBtn">+ 添加歌曲</button>
+        </div>
+      </div>
+    </div>
+
+    <!--添加歌曲弹窗-->
+    <div class="add-song-modal" id="addSongModal">
+      <div class="add-song-mask" id="addSongMask"></div>
+      <div class="add-song-content">
+        <div class="add-song-header">
+          <span>添加歌曲</span>
+          <span class="add-song-close" id="addSongClose">✕</span>
+        </div>
+        <div class="add-song-list" id="addSongList"></div>
+      </div>
+    </div>
   </div>
 
   <!--音频-->
@@ -520,9 +869,20 @@
 
     /*唱片滑动切音频*/
     const recordWrapper = document.getElementById("recordWrapper");
-    const audioSources = ["voice1.mp3", "voice2.m4a", "voice.mp3", "voice3.mp3", "voice4.mp3"];
-    const audioNames = ["记得想我", "我爱你", "几分之几", "爱，很简单", "我不难过"];
-    let currentAudioIndex = 0;
+    /*所有歌曲库*/
+    const allSongs = [
+      {src: "voice1.mp3", name: "记得想我"},
+      {src: "voice2.m4a", name: "我爱你"},
+      {src: "voice.mp3", name: "几分之几"},
+      {src: "voice3.mp3", name: "爱，很简单"},
+      {src: "voice4.mp3", name: "我不难过"}
+    ];
+    /*播放列表（存储 allSongs 的索引，默认全部）*/
+    let playlist = [0, 1, 2, 3, 4];
+    /*播放模式: order顺序 / repeat-list列表循环 / repeat-one单曲 / shuffle随机*/
+    let playMode = "order";
+    /*当前播放列表中的位置*/
+    let currentPlaylistIndex = 0;
     let swipeStartX = 0;
     let swipeCurrentX = 0;
     let isSwiping = false;
@@ -543,10 +903,18 @@
       return e.touches ? e.touches[0].clientX : e.clientX;
     }
 
-    function switchAudio(index) {
-      currentAudioIndex = index;
+    function getCurrentSong() {
+      return allSongs[playlist[currentPlaylistIndex]];
+    }
+
+    function switchAudio(pIndex) {
+      if (playlist.length === 0) return;
+      if (pIndex < 0) pIndex = playlist.length - 1;
+      if (pIndex >= playlist.length) pIndex = 0;
+      currentPlaylistIndex = pIndex;
+      const song = getCurrentSong();
       audio.pause();
-      audio.src = audioSources[index];
+      audio.src = song.src;
       audio.load();
       audio.play().catch(function(){});
       playButton.innerHTML = "Ⅱ";
@@ -555,9 +923,10 @@
       currenTime.innerHTML = "0:00";
       songName.style.opacity = "0";
       setTimeout(function(){
-        songName.innerHTML = audioNames[index];
+        songName.innerHTML = song.name;
         songName.style.opacity = "0.92";
       }, 200);
+      renderPlaylist();
     }
 
     function handleSwipeEnd(deltaX) {
@@ -566,10 +935,14 @@
         recordWrapper.style.transform = "translateX(0)";
         return;
       }
+      if (playlist.length === 0) {
+        recordWrapper.style.transform = "translateX(0)";
+        return;
+      }
       if (deltaX < 0) {
-        switchAudio((currentAudioIndex + 1) % audioSources.length);
+        switchAudio(currentPlaylistIndex + 1);
       } else {
-        switchAudio((currentAudioIndex - 1 + audioSources.length) % audioSources.length);
+        switchAudio(currentPlaylistIndex - 1);
       }
       recordWrapper.style.transform = "translateX(0)";
     }
@@ -667,12 +1040,44 @@
             }
     );
 
-    /*播放结束*/
+    /*播放结束 - 根据播放模式自动处理*/
     audio.addEventListener("ended",()=>{
-      playButton.innerHTML="qwq";
-      record.classList.remove(
-              "spinning"
-      );
+      if (playlist.length === 0) {
+        playButton.innerHTML="qwq";
+        record.classList.remove("spinning");
+        return;
+      }
+      if (playMode === "repeat-one") {
+        /*单曲循环：重播当前*/
+        audio.currentTime = 0;
+        audio.play();
+        return;
+      }
+      if (playMode === "shuffle") {
+        /*随机播放：随机选一首（不与当前相同）*/
+        if (playlist.length <= 1) {
+          audio.currentTime = 0;
+          audio.play();
+          return;
+        }
+        let next;
+        do {
+          next = Math.floor(Math.random() * playlist.length);
+        } while (next === currentPlaylistIndex);
+        switchAudio(next);
+        return;
+      }
+      /*顺序播放 / 列表循环*/
+      if (currentPlaylistIndex < playlist.length - 1) {
+        switchAudio(currentPlaylistIndex + 1);
+      } else if (playMode === "repeat-list") {
+        /*列表循环：回到第一首*/
+        switchAudio(0);
+      } else {
+        /*顺序播放：播完停止*/
+        playButton.innerHTML="qwq";
+        record.classList.remove("spinning");
+      }
     });
 
     /*时间格式*/
@@ -718,6 +1123,139 @@
         btn.disabled = false;
       }
     }
+
+    /*========== 播放列表功能 ==========*/
+    const playlistPanel = document.getElementById("playlistPanel");
+    const playlistBar = document.getElementById("playlistBar");
+    const playlistClose = document.getElementById("playlistClose");
+    const playlistMask = document.getElementById("playlistMask");
+    const playlistItems = document.getElementById("playlistItems");
+    const playlistCount = document.getElementById("playlistCount");
+    const playlistModeIcon = document.getElementById("playlistModeIcon");
+    const addSongBtn = document.getElementById("addSongBtn");
+    const addSongModal = document.getElementById("addSongModal");
+    const addSongClose = document.getElementById("addSongClose");
+    const addSongMask = document.getElementById("addSongMask");
+    const addSongList = document.getElementById("addSongList");
+
+    const modeLabels = {
+      "order": "顺序",
+      "repeat-list": "列表循环",
+      "repeat-one": "单曲",
+      "shuffle": "随机"
+    };
+
+    /*渲染播放列表*/
+    function renderPlaylist() {
+      playlistItems.innerHTML = "";
+      playlist.forEach(function(songIdx, pIdx) {
+        const song = allSongs[songIdx];
+        const item = document.createElement("div");
+        item.className = "playlist-item" + (pIdx === currentPlaylistIndex ? " playing" : "");
+        item.innerHTML =
+          '<span class="item-index">' + (pIdx === currentPlaylistIndex ? "♪" : (pIdx + 1)) + '</span>' +
+          '<span class="item-name">' + song.name + '</span>' +
+          '<span class="item-remove" data-pidx="' + pIdx + '">✕</span>';
+        item.addEventListener("click", function(e) {
+          if (e.target.classList.contains("item-remove")) return;
+          switchAudio(pIdx);
+        });
+        playlistItems.appendChild(item);
+      });
+      /*绑定删除按钮*/
+      playlistItems.querySelectorAll(".item-remove").forEach(function(btn) {
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          removeFromPlaylist(parseInt(this.dataset.pidx));
+        });
+      });
+      playlistCount.textContent = playlist.length + "首";
+    }
+
+    /*从播放列表删除*/
+    function removeFromPlaylist(pIdx) {
+      if (playlist.length <= 1) {
+        alert("播放列表至少要保留一首歌曲哦");
+        return;
+      }
+      playlist.splice(pIdx, 1);
+      if (pIdx < currentPlaylistIndex) {
+        currentPlaylistIndex--;
+      } else if (pIdx === currentPlaylistIndex) {
+        if (currentPlaylistIndex >= playlist.length) {
+          currentPlaylistIndex = 0;
+        }
+        switchAudio(currentPlaylistIndex);
+      }
+      renderPlaylist();
+      renderAddSongList();
+    }
+
+    /*渲染添加歌曲列表*/
+    function renderAddSongList() {
+      addSongList.innerHTML = "";
+      allSongs.forEach(function(song, idx) {
+        const inPlaylist = playlist.indexOf(idx) !== -1;
+        const item = document.createElement("div");
+        item.className = "add-song-item" + (inPlaylist ? " disabled" : "");
+        item.innerHTML =
+          '<span class="add-item-name">' + song.name + '</span>' +
+          '<span class="add-item-status">' + (inPlaylist ? "已在列表" : "+ 添加") + '</span>';
+        if (!inPlaylist) {
+          item.addEventListener("click", function() {
+            playlist.push(idx);
+            renderPlaylist();
+            renderAddSongList();
+          });
+        }
+        addSongList.appendChild(item);
+      });
+    }
+
+    /*更新入口栏模式显示*/
+    function updateModeIcon() {
+      playlistModeIcon.textContent = modeLabels[playMode];
+    }
+
+    /*面板开关*/
+    function openPlaylist() {
+      playlistPanel.classList.add("show");
+      renderPlaylist();
+    }
+    function closePlaylist() {
+      playlistPanel.classList.remove("show");
+    }
+    playlistBar.addEventListener("click", openPlaylist);
+    playlistClose.addEventListener("click", closePlaylist);
+    playlistMask.addEventListener("click", closePlaylist);
+
+    /*模式切换*/
+    document.querySelectorAll(".mode-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        document.querySelectorAll(".mode-btn").forEach(function(b) {
+          b.classList.remove("active");
+        });
+        this.classList.add("active");
+        playMode = this.dataset.mode;
+        updateModeIcon();
+      });
+    });
+
+    /*添加歌曲弹窗*/
+    addSongBtn.addEventListener("click", function() {
+      renderAddSongList();
+      addSongModal.classList.add("show");
+    });
+    function closeAddSong() {
+      addSongModal.classList.remove("show");
+    }
+    addSongClose.addEventListener("click", closeAddSong);
+    addSongMask.addEventListener("click", closeAddSong);
+
+    /*初始化渲染*/
+    renderPlaylist();
+    renderAddSongList();
+    updateModeIcon();
 
   </script>
   </body>
