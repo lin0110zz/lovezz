@@ -144,6 +144,23 @@
         margin-bottom: 35px;
       }
 
+      /*歌曲名称*/
+      .song-name{
+        text-align: center;
+        color: #d86f98;
+        font-size: 17px;
+        font-weight: 600;
+        margin: 0 auto 14px;
+        letter-spacing: 1.5px;
+        opacity: 0.92;
+        transition: opacity 0.3s ease;
+      }
+      .song-name::before{
+        content: "♡ ";
+        font-size: 14px;
+        color: #e89ab3;
+      }
+
       /*唱片*/
       .record-wrapper{
         width: 170px;
@@ -358,6 +375,11 @@
           width: 48px;
           height: 48px;
         }
+        .song-name{
+          font-size: 14px;
+          margin-bottom: 10px;
+          letter-spacing: 1px;
+        }
         .play-button{
           width: 60px;
           height: 60px;
@@ -443,6 +465,9 @@
 
 
     <!--唱片-->
+    <div class="song-name" id="songName">
+      给你的悄悄话
+    </div>
     <div class="record-wrapper" id="recordWrapper">
       <div class="record" id="record">
       </div>
@@ -491,10 +516,12 @@
     const progressContainer=document .getElementById("progressContainer");
     const currenTime=document .getElementById("currentTime");
     const duration=document.getElementById("duration");
+    const songName=document.getElementById("songName");
 
     /*唱片滑动切音频*/
     const recordWrapper = document.getElementById("recordWrapper");
     const audioSources = ["voice1.mp3", "voice2.m4a", "voice.mp3", "voice3.mp3", "voice4.mp3"];
+    const audioNames = ["给你的悄悄话", "几分之几", "我们的旋律", "爱，很简单", "我不难过"];
     let currentAudioIndex = 0;
     let swipeStartX = 0;
     let swipeCurrentX = 0;
@@ -526,6 +553,11 @@
       record.classList.add("spinning");
       progress.style.width = "0%";
       currenTime.innerHTML = "0:00";
+      songName.style.opacity = "0";
+      setTimeout(function(){
+        songName.innerHTML = audioNames[index];
+        songName.style.opacity = "0.92";
+      }, 200);
     }
 
     function handleSwipeEnd(deltaX) {
