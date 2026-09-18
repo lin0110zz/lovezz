@@ -1167,6 +1167,56 @@
         font-weight:600;
         cursor:pointer;
       }
+      .bv-parts{
+        margin-top:12px;
+        display:flex;
+        flex-direction:column;
+        gap:7px;
+        max-height:330px;
+        overflow:auto;
+      }
+      .bv-part-item{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:9px 10px;
+        border:1px solid #ffe2ea;
+        border-radius:12px;
+        background:rgba(255,255,255,.78);
+      }
+      .bv-part-index{
+        flex:0 0 38px;
+        color:#c18497;
+        font-size:11px;
+        font-weight:700;
+      }
+      .bv-part-name{
+        flex:1;
+        min-width:0;
+        color:#765966;
+        font-size:12px;
+        line-height:1.45;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+      .bv-part-state{
+        flex:0 0 auto;
+        font-size:10px;
+        color:#9c7785;
+      }
+      .bv-part-state.ok{color:#7d9b89;}
+      .bv-part-state.fail{color:#d26f91;}
+      .bv-part-btn{
+        flex:0 0 auto;
+        border:0;
+        border-radius:9px;
+        padding:6px 8px;
+        background:#fff0f5;
+        color:#b9788e;
+        font-size:10px;
+        cursor:pointer;
+      }
       .bv-play-btn{background:linear-gradient(135deg,#f6a6bd,#e889a8);color:#fff;}
       .bv-add-btn{background:#f8e9ee;color:#b1788d;}
       .bv-status{
@@ -2133,9 +2183,10 @@
           <div class="bv-result-title" id="bvResultTitle"></div>
           <div class="bv-result-meta" id="bvResultMeta"></div>
           <div class="bv-result-format" id="bvResultFormat">🎧 音频已就绪</div>
+          <div class="bv-parts" id="bvParts"></div>
           <div class="bv-result-actions">
-            <button class="bv-play-btn" id="bvPlayBtn">▶ 立即播放</button>
-            <button class="bv-add-btn" id="bvAddBtn">＋ 加入歌单</button>
+            <button class="bv-play-btn" id="bvPlayBtn">▶ 播放第一集</button>
+            <button class="bv-add-btn" id="bvAddBtn">＋ 全部加入歌单</button>
           </div>
         </div>
       </div>
@@ -2660,6 +2711,7 @@
     const bvResultTitle = document.getElementById("bvResultTitle");
     const bvResultMeta = document.getElementById("bvResultMeta");
     const bvResultFormat = document.getElementById("bvResultFormat");
+    const bvParts = document.getElementById("bvParts");
     const bvPlayBtn = document.getElementById("bvPlayBtn");
     const bvAddBtn = document.getElementById("bvAddBtn");
     let pendingAddPlaylistId = null;
@@ -2809,7 +2861,53 @@
       bvResult.classList.remove("show");
       bvResultTitle.textContent = "";
       bvResultMeta.textContent = "";
+      if (bvParts) bvParts.innerHTML = "";
       if (bvResultFormat) bvResultFormat.textContent = "🎧 音频已就绪";
+    }
+
+    function renderBvParts(items) {
+      if (!bvParts) return;
+      bvParts.innerHTML = "";
+      (items || []).forEach(function(item, i) {
+        const row = document.createElement("div");
+        row.className = "bv-part-item";
+        const idx = document.createElement("div");
+        idx.className = "bv-part-index";
+        idx.textContent = "P" + (item.page || (i + 1));
+        const name = document.createElement("div");
+        name.className = "bv-part-name";
+        name.title = item.title || "未命名分P";
+        name.textContent = item.title || "未命名分P";
+        const state = document.createElement("div");
+        state.className = "bv-part-state " + (item.ok && item.audio ? "ok" : "fail");
+        state.textContent = item.ok && item.audio ? "✓ 已就绪" : "✕ 失败";
+        row.appendChild(idx);
+        row.appendChild(name);
+        row.appendChild(state);
+        if (item.ok && item.audio) {
+          const play = document.createElement("button");
+          play.className = "bv-part-btn";
+          play.textContent = "播放";
+          play.addEventListener("click", function() {
+            currentBvAudioSong = {
+              src: item.audio,
+              name: item.title || ("P" + item.page),
+              artist: "B站视频音频",
+              source: "bilibili",
+              id: item.cid || ("" + item.page),
+              _uid: "bilibili_" + (item.cid || item.page)
+            };
+            const idx2 = findOrAddSearchSong(currentBvAudioSong);
+            if (playlist.indexOf(idx2) === -1) playlist.push(idx2);
+            renderPlaylist();
+            savePlaylists();
+            switchAudio(playlist.indexOf(idx2));
+            closeSearchPanel();
+          });
+          row.appendChild(play);
+        }
+        bvParts.appendChild(row);
+      });
     }
 
     function doBvExtract() {
@@ -2821,7 +2919,7 @@
       }
       bvSubmit.disabled = true;
       resetBvResult();
-      setBvStatus("① 正在读取视频信息 → ② 获取授权可访问媒体 → ③ FFmpeg 分离原音轨 → ④ 准备 Lovezz 播放…");
+      setBvStatus("① 正在读取全部分P → ② 每集分别获取音频 → ③ 整理分P标题 → ④ 准备 Lovezz 播放…");
       fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(bvid))
         .then(function(resp) {
           return resp.json().then(function(data){ return {ok: resp.ok, data:data}; });
@@ -2829,26 +2927,40 @@
         .then(function(result) {
           bvSubmit.disabled = false;
           const data = result.data || {};
-          if (!result.ok || data.error || !data.audio) {
-            setBvStatus(data.error || "没有获取到可用音频捏，嘤嘤嘤请确认视频公开且你有权使用。", "error");
+          const items = Array.isArray(data.items) ? data.items : [];
+          window.__lovezzBvItems = items;
+          const successItems = items.filter(function(x){ return x && x.ok && x.audio; });
+          if (!result.ok || data.error && !successItems.length) {
+            if (items.length) renderBvParts(items);
+            setBvStatus(data.error || "没有获取到可用音频捏，请确认视频公开且你有权使用。", "error");
             return;
           }
+
+          const first = successItems[0] || data;
           currentBvAudioSong = {
-            src: data.audio,
-            name: data.title || (bvid + " 音频"),
+            src: first.audio,
+            name: first.title || data.title || (bvid + " 音频"),
             artist: "B站视频音频",
             source: "bilibili",
-            id: bvid,
-            _uid: "bilibili_" + bvid
+            id: first.cid || bvid,
+            _uid: "bilibili_" + (first.cid || bvid)
           };
           bvResultTitle.textContent = data.title || (bvid + " 音频");
-          const duration = Number(data.duration || 0);
+          const duration = Number(data.duration || first.duration || 0);
           const durationText = duration > 0 ? Math.floor(duration / 60) + ":" + String(Math.floor(duration % 60)).padStart(2, "0") : "时长未知";
-          const pipelineText = data.pipeline === "ffmpeg-copy" ? "FFmpeg 原音轨" : (data.pipeline === "direct-audio" ? "B站独立音频轨" : "音频");
-          bvResultMeta.textContent = bvid + " · " + pipelineText + " · " + durationText;
-          if (bvResultFormat) bvResultFormat.textContent = data.pipeline === "ffmpeg-copy" ? "🎧 FFmpeg 已分离原音频 · 可直接播放" : "🎧 独立音频轨已就绪捏 · 可直接播放";
+          const pipelineText = data.pipeline === "ffmpeg-copy" ? "FFmpeg 原音轨" : "B站独立音频轨";
+          bvResultMeta.textContent = bvid + " · " + (data.total || items.length || 1) + " 集 · 成功 " + (data.success || successItems.length) + " · 失败 " + (data.failed || 0) + " · " + pipelineText + " · " + durationText;
+          if (bvResultFormat) bvResultFormat.textContent = (data.total || 1) > 1
+            ? "🎧 已逐集处理，每集使用自己的 cid · 可单独播放/加入歌单"
+            : "🎧 音频已就绪 · 可直接播放";
+          renderBvParts(items.length ? items : [data]);
           bvResult.classList.add("show");
-          setBvStatus("处理完成啦：音频已准备好，现在可以直接播放或加入歌单喵qwq。", "success");
+          setBvStatus(
+            (data.total || 1) > 1
+              ? "处理完成啦：共 " + (data.total || items.length) + " 集，成功 " + (data.success || successItems.length) + " 集；失败的分P不会影响其它集。"
+              : "处理完成啦：音频已准备好，现在可以直接播放或加入歌单喵qwq。",
+            (data.failed || 0) ? "" : "success"
+          );
         })
         .catch(function(err) {
           bvSubmit.disabled = false;
@@ -2858,6 +2970,30 @@
 
     function addCurrentBvSong() {
       if (!currentBvAudioSong) return;
+      // 若当前结果存在多P，优先把所有成功分P加入歌单。
+      const rows = bvParts ? Array.from(bvParts.querySelectorAll(".bv-part-item")) : [];
+      // 从当前结果保存的对象读取更可靠，因此由 doBvExtract 挂到窗口变量。
+      const items = window.__lovezzBvItems || [];
+      const playable = items.filter(function(x){ return x && x.ok && x.audio; });
+      if (playable.length > 1) {
+        let added = 0;
+        playable.forEach(function(item){
+          const song = {
+            src: item.audio,
+            name: item.title || ("P" + item.page),
+            artist: "B站视频音频",
+            source: "bilibili",
+            id: item.cid || ("" + item.page),
+            _uid: "bilibili_" + (item.cid || item.page)
+          };
+          const idx = findOrAddSearchSong(song);
+          if (playlist.indexOf(idx) === -1) { playlist.push(idx); added++; }
+        });
+        renderPlaylist();
+        savePlaylists();
+        showToast("已加入 " + added + " 集 B站音频");
+        return;
+      }
       const idx = findOrAddSearchSong(currentBvAudioSong);
       if (playlist.indexOf(idx) === -1) playlist.push(idx);
       renderPlaylist();
