@@ -598,7 +598,6 @@ async function handleBv(query, event) {
     const pages = Array.isArray(view.data.pages) ? view.data.pages.filter(p => p && p.cid) : [];
     if (!pages.length) return jsonResp(404, { error: '没有找到可播放的视频分P' });
 
-    // 关键修复：每个 P 都使用自己的 cid 单独请求音频，不能只取 pages[0]。
     async function extractOne(page) {
       const pageNo = Number(page.page || 0);
       const pageTitle = cleanText(page.part || `P${pageNo || 1}`);
@@ -606,7 +605,6 @@ async function handleBv(query, event) {
       let audioUrl = '';
       let pipeline = '';
 
-      // 优先 DASH 独立音频轨。fnval=16 是 B站 DASH 音视频分离模式。
       try {
         const dashApi =
           `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
@@ -627,7 +625,6 @@ async function handleBv(query, event) {
         }
       } catch (_) {}
 
-      // DASH 不可用时，再尝试 DURL + FFmpeg；只在输出较小时内联，避免函数响应过大。
       if (!audioUrl) {
         try {
           const durlApi =
@@ -642,84 +639,54 @@ async function handleBv(query, event) {
             ? durlJson.data.durl[0] : null;
           const videoUrl = durlItem && durlItem.url ? toHttps(durlItem.url) : '';
           if (videoUrl) {
-            const ff = await extractAudioInline(videoUrl, {
-              referer,
-              maxBytes: 8 * 1024 * 1024,
-            });
+            const ff = await extractAudioInline(videoUrl, { referer, maxBytes: 8 * 1024 * 1024 });
             if (ff && ff.dataUrl) {
-              return {
-                ok: true,
-                page: pageNo,
-                cid: String(page.cid),
-                title: pageTitle,
-                duration: Number(page.duration || 0),
-                audio: ff.dataUrl,
-                format: 'M4A (FFmpeg copy)',
-                pipeline: 'ffmpeg-copy',
-              };
+              return { ok: true, page: pageNo, cid: String(page.cid), title: pageTitle,
+                duration: Number(page.duration || 0), audio: ff.dataUrl,
+                format: 'M4A (FFmpeg copy)', pipeline: 'ffmpeg-copy' };
             }
           }
         } catch (_) {}
       }
 
       if (!audioUrl) {
-        return {
-          ok: false,
-          page: pageNo,
-          cid: String(page.cid),
-          title: pageTitle,
-          duration: Number(page.duration || 0),
-          error: '该分P没有获取到可直接使用的公开音频轨',
-        };
+        return { ok: false, page: pageNo, cid: String(page.cid), title: pageTitle,
+          duration: Number(page.duration || 0), error: '该分P没有获取到可直接使用的公开音频轨' };
       }
 
-      return {
-        ok: true,
-        page: pageNo,
-        cid: String(page.cid),
-        title: pageTitle,
+      return { ok: true, page: pageNo, cid: String(page.cid), title: pageTitle,
         duration: Number(page.duration || 0),
         audio: `${selfBase}/api/bvaudio?u=${b64urlEncode(audioUrl)}`,
-        format: 'DASH audio (proxied)',
-        pipeline,
-      };
+        format: 'DASH audio (proxied)', pipeline };
     }
 
-    // 顺序处理，降低多个 CDN 请求同时发起导致的风控/超时概率；单个 P 失败不影响后续 P。
-    const items = [];
-    for (const page of pages) {
-      items.push(await extractOne(page));
+    // 支持 p 参数：指定只取第几集的音频；不传 p 时只返回分P列表（不请求音频，秒回）。
+    const pParam = Number(query.p || '');
+    if (pParam >= 1) {
+      const target = pages.find(pp => Number(pp.page) === pParam) || pages[pParam - 1];
+      if (!target) return jsonResp(404, { error: `第 ${pParam} 集不存在` });
+      const item = await extractOne(target);
+      if (!item.ok) return jsonResp(403, { error: item.error || '该集无法获取音频', page: pParam });
+      return jsonResp(200, { code: 1, bvid, title: cleanText(view.data.title || bvid),
+        total: pages.length, page: pParam, item });
     }
 
-    const successItems = items.filter(x => x.ok && x.audio);
-    const failedItems = items.filter(x => !x.ok);
-    if (!successItems.length) {
-      return jsonResp(403, {
-        error: '没有获取到任何可直接使用的公开音频。',
-        bvid,
-        total: items.length,
-        success: 0,
-        failed: failedItems.length,
-        items,
-      });
-    }
+    // 不传 p：只返回分P列表，不逐集请求音频。前端拿到列表后按需逐集加载。
+    const listItems = pages.map(pg => ({
+      page: Number(pg.page || 0),
+      cid: String(pg.cid),
+      title: cleanText(pg.part || `P${pg.page || 1}`),
+      duration: Number(pg.duration || 0),
+    }));
 
-    // 保留兼容字段：单P项目仍可直接使用 title/audio；多P则同时返回完整 items。
-    const first = successItems[0];
     return jsonResp(200, {
       code: 1,
       bvid,
       title: cleanText(view.data.title || bvid),
-      duration: Number(view.data.duration || first.duration || 0),
-      cid: first.cid,
-      audio: first.audio,
-      format: first.format,
-      pipeline: first.pipeline,
-      total: items.length,
-      success: successItems.length,
-      failed: failedItems.length,
-      items,
-      note: '每个分P使用独立 cid 获取音频；某一P失败不会中断其余分P。',
+      duration: Number(view.data.duration || 0),
+      total: listItems.length,
+      items: listItems,
+      note: '分P列表已返回；点击某集后用 ?p=N 加载该集音频。',
     });
   } catch (e) {
     return jsonResp(502, { error: '获取B站公开音轨失败，请稍后重试', detail: e.message });
