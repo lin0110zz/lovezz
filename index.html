@@ -2892,31 +2892,41 @@
         play.className = "bv-part-btn";
         play.textContent = "播放";
         play.addEventListener("click", function() {
-          loadBvPartAudio(item, play, state);
+          loadBvPartAudio(item, play, state, true);
         });
         row.appendChild(play);
+
+        const add = document.createElement("button");
+        add.className = "bv-part-btn";
+        add.textContent = "＋";
+        add.title = "加入歌单";
+        add.addEventListener("click", function() {
+          loadBvPartAudio(item, add, state, false);
+        });
+        row.appendChild(add);
         bvParts.appendChild(row);
       });
     }
 
-    // 逐集加载音频：点击播放时才请求该集
-    function loadBvPartAudio(item, btn, state) {
+    // 逐集加载音频；play=true 播放，play=false 只加入歌单
+    function loadBvPartAudio(item, btn, state, play) {
       const bvid = window.__lovezzBvState.bvid;
       if (!bvid) return;
-      if (btn) { btn.disabled = true; btn.textContent = "加载中…"; }
-      if (state) { state.className = "bv-part-state loading"; state.textContent = "加载中…"; }
+      const origText = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = "…"; }
+      if (state) { state.className = "bv-part-state loading"; state.textContent = "…"; }
       fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(bvid) + "&p=" + (item.page || 1))
         .then(function(r){ return r.json(); })
         .then(function(data) {
           if (data.error || !data.item) {
-            if (btn) { btn.disabled = false; btn.textContent = "重试"; }
-            if (state) { state.className = "bv-part-state fail"; state.textContent = "✕ 失败"; }
+            if (btn) { btn.disabled = false; btn.textContent = origText; }
+            if (state) { state.className = "bv-part-state fail"; state.textContent = "✕"; }
             setBvStatus(data.error || "该集加载失败", "error");
             return;
           }
           const audioItem = data.item;
-          if (state) { state.className = "bv-part-state ok"; state.textContent = "✓ 已就绪"; }
-          if (btn) { btn.disabled = false; btn.textContent = "播放"; }
+          if (state) { state.className = "bv-part-state ok"; state.textContent = "✓"; }
+          if (btn) { btn.disabled = false; btn.textContent = origText; }
           const song = {
             src: audioItem.audio,
             name: audioItem.title || item.title || ("P" + item.page),
@@ -2930,12 +2940,16 @@
           if (playlist.indexOf(idx2) === -1) playlist.push(idx2);
           renderPlaylist();
           savePlaylists();
-          switchAudio(playlist.indexOf(idx2));
-          closeSearchPanel();
+          if (play) {
+            switchAudio(playlist.indexOf(idx2));
+            closeSearchPanel();
+          } else {
+            showToast("已加入歌单：" + (song.name || ""));
+          }
         })
         .catch(function() {
-          if (btn) { btn.disabled = false; btn.textContent = "重试"; }
-          if (state) { state.className = "bv-part-state fail"; state.textContent = "✕ 失败"; }
+          if (btn) { btn.disabled = false; btn.textContent = origText; }
+          if (state) { state.className = "bv-part-state fail"; state.textContent = "✕"; }
         });
     }
 
