@@ -574,9 +574,17 @@ async function handlePlay(query) {
 // 不绕过会员、付费、登录或其它访问限制；没有公开音轨时直接返回错误。
 async function handleBv(query, event) {
   const raw = String(query.bvid || query.bv || query.id || '').trim();
-  const m = raw.match(/BV[0-9A-Za-z]{10}/i);
-  const bvid = m ? m[0] : '';
-  if (!bvid) return jsonResp(400, { error: '请输入正确的 BV 号或 B站视频链接' });
+  // 匹配 BV 号
+  const bvMatch = raw.match(/BV[0-9A-Za-z]{10}/i);
+  // 匹配 av 号：av12345678 或 aid=12345678
+  const avMatch = raw.match(/av(\d+)/i) || raw.match(/aid=(\d+)/i);
+  const bvid = bvMatch ? bvMatch[0] : '';
+  const aid = avMatch ? avMatch[1] : '';
+  if (!bvid && !aid) return jsonResp(400, { error: '请输入正确的 BV 号、av 号或 B站视频链接' });
+
+  // 构造 B站 view API 参数
+  const viewParam = bvid ? `bvid=${encodeURIComponent(bvid)}` : `aid=${encodeURIComponent(aid)}`;
+  const refId = bvid || ('av' + aid);
 
   const evHdrs = (event && event.headers) || {};
   const selfHost = evHdrs.Host || evHdrs.host || evHdrs.HOST || '1489001692-hrizux5309.ap-guangzhou.tencentscf.com';
@@ -587,7 +595,7 @@ async function handleBv(query, event) {
 
   try {
     const viewResp = await httpsRequest(
-      `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`,
+      `https://api.bilibili.com/x/web-interface/view?${viewParam}`,
       { headers: { 'User-Agent': UA, 'Referer': 'https://www.bilibili.com/' }, timeout: UPSTREAM_TIMEOUT }
     );
     const view = JSON.parse(viewResp.body || '{}');
@@ -601,13 +609,13 @@ async function handleBv(query, event) {
     async function extractOne(page) {
       const pageNo = Number(page.page || 0);
       const pageTitle = cleanText(page.part || `P${pageNo || 1}`);
-      const referer = `https://www.bilibili.com/video/${bvid}/?p=${pageNo || 1}`;
+      const referer = `https://www.bilibili.com/video/${refId}/?p=${pageNo || 1}`;
       let audioUrl = '';
       let pipeline = '';
 
       try {
         const dashApi =
-          `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
+          `https://api.bilibili.com/x/player/playurl?${viewParam}` +
           `&cid=${encodeURIComponent(page.cid)}&fnval=16&fnver=0&fourk=1`;
         const dashResp = await httpsRequest(dashApi, {
           headers: { 'User-Agent': UA, 'Referer': referer },
@@ -628,7 +636,7 @@ async function handleBv(query, event) {
       if (!audioUrl) {
         try {
           const durlApi =
-            `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
+            `https://api.bilibili.com/x/player/playurl?${viewParam}` +
             `&cid=${encodeURIComponent(page.cid)}&fnval=0&fnver=0&fourk=0`;
           const durlResp = await httpsRequest(durlApi, {
             headers: { 'User-Agent': UA, 'Referer': referer },
@@ -667,7 +675,7 @@ async function handleBv(query, event) {
       if (!target) return jsonResp(404, { error: `第 ${pParam} 集不存在` });
       const item = await extractOne(target);
       if (!item.ok) return jsonResp(403, { error: item.error || '该集无法获取音频', page: pParam });
-      return jsonResp(200, { code: 1, bvid, title: cleanText(view.data.title || bvid),
+      return jsonResp(200, { code: 1, bvid: refId, title: cleanText(view.data.title || refId),
         total: pages.length, page: pParam, item });
     }
 
@@ -681,8 +689,8 @@ async function handleBv(query, event) {
 
     return jsonResp(200, {
       code: 1,
-      bvid,
-      title: cleanText(view.data.title || bvid),
+      bvid: refId,
+      title: cleanText(view.data.title || refId),
       duration: Number(view.data.duration || 0),
       total: listItems.length,
       items: listItems,
