@@ -2865,6 +2865,9 @@
       if (bvResultFormat) bvResultFormat.textContent = "🎧 音频已就绪";
     }
 
+    // 当前 BV 提取的全局状态
+    window.__lovezzBvState = { bvid: '', items: [], loaded: {} };
+
     function renderBvParts(items) {
       if (!bvParts) return;
       bvParts.innerHTML = "";
@@ -2879,35 +2882,61 @@
         name.title = item.title || "未命名分P";
         name.textContent = item.title || "未命名分P";
         const state = document.createElement("div");
-        state.className = "bv-part-state " + (item.ok && item.audio ? "ok" : "fail");
-        state.textContent = item.ok && item.audio ? "✓ 已就绪" : "✕ 失败";
+        state.className = "bv-part-state";
+        state.textContent = "";
         row.appendChild(idx);
         row.appendChild(name);
         row.appendChild(state);
-        if (item.ok && item.audio) {
-          const play = document.createElement("button");
-          play.className = "bv-part-btn";
-          play.textContent = "播放";
-          play.addEventListener("click", function() {
-            currentBvAudioSong = {
-              src: item.audio,
-              name: item.title || ("P" + item.page),
-              artist: "B站视频音频",
-              source: "bilibili",
-              id: item.cid || ("" + item.page),
-              _uid: "bilibili_" + (item.cid || item.page)
-            };
-            const idx2 = findOrAddSearchSong(currentBvAudioSong);
-            if (playlist.indexOf(idx2) === -1) playlist.push(idx2);
-            renderPlaylist();
-            savePlaylists();
-            switchAudio(playlist.indexOf(idx2));
-            closeSearchPanel();
-          });
-          row.appendChild(play);
-        }
+
+        const play = document.createElement("button");
+        play.className = "bv-part-btn";
+        play.textContent = "播放";
+        play.addEventListener("click", function() {
+          loadBvPartAudio(item, play, state);
+        });
+        row.appendChild(play);
         bvParts.appendChild(row);
       });
+    }
+
+    // 逐集加载音频：点击播放时才请求该集
+    function loadBvPartAudio(item, btn, state) {
+      const bvid = window.__lovezzBvState.bvid;
+      if (!bvid) return;
+      if (btn) { btn.disabled = true; btn.textContent = "加载中…"; }
+      if (state) { state.className = "bv-part-state loading"; state.textContent = "加载中…"; }
+      fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(bvid) + "&p=" + (item.page || 1))
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          if (data.error || !data.item) {
+            if (btn) { btn.disabled = false; btn.textContent = "重试"; }
+            if (state) { state.className = "bv-part-state fail"; state.textContent = "✕ 失败"; }
+            setBvStatus(data.error || "该集加载失败", "error");
+            return;
+          }
+          const audioItem = data.item;
+          if (state) { state.className = "bv-part-state ok"; state.textContent = "✓ 已就绪"; }
+          if (btn) { btn.disabled = false; btn.textContent = "播放"; }
+          const song = {
+            src: audioItem.audio,
+            name: audioItem.title || item.title || ("P" + item.page),
+            artist: "B站视频音频",
+            source: "bilibili",
+            id: audioItem.cid || item.cid || ("" + item.page),
+            _uid: "bilibili_" + (audioItem.cid || item.cid || item.page)
+          };
+          currentBvAudioSong = song;
+          const idx2 = findOrAddSearchSong(song);
+          if (playlist.indexOf(idx2) === -1) playlist.push(idx2);
+          renderPlaylist();
+          savePlaylists();
+          switchAudio(playlist.indexOf(idx2));
+          closeSearchPanel();
+        })
+        .catch(function() {
+          if (btn) { btn.disabled = false; btn.textContent = "重试"; }
+          if (state) { state.className = "bv-part-state fail"; state.textContent = "✕ 失败"; }
+        });
     }
 
     function doBvExtract() {
@@ -2919,7 +2948,8 @@
       }
       bvSubmit.disabled = true;
       resetBvResult();
-      setBvStatus("① 正在读取全部分P → ② 每集分别获取音频 → ③ 整理分P标题 → ④ 准备 Lovezz 播放…");
+      window.__lovezzBvState = { bvid: bvid, items: [], loaded: {} };
+      setBvStatus("正在读取分P列表…");
       fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(bvid))
         .then(function(resp) {
           return resp.json().then(function(data){ return {ok: resp.ok, data:data}; });
@@ -2928,39 +2958,32 @@
           bvSubmit.disabled = false;
           const data = result.data || {};
           const items = Array.isArray(data.items) ? data.items : [];
-          window.__lovezzBvItems = items;
-          const successItems = items.filter(function(x){ return x && x.ok && x.audio; });
-          if (!result.ok || data.error && !successItems.length) {
-            if (items.length) renderBvParts(items);
-            setBvStatus(data.error || "没有获取到可用音频捏，请确认视频公开且你有权使用。", "error");
+          window.__lovezzBvState.items = items;
+          if (!result.ok || data.error) {
+            setBvStatus(data.error || "没有获取到可用视频捏，请确认视频公开且你有权使用。", "error");
             return;
           }
 
-          const first = successItems[0] || data;
-          currentBvAudioSong = {
-            src: first.audio,
-            name: first.title || data.title || (bvid + " 音频"),
-            artist: "B站视频音频",
-            source: "bilibili",
-            id: first.cid || bvid,
-            _uid: "bilibili_" + (first.cid || bvid)
-          };
           bvResultTitle.textContent = data.title || (bvid + " 音频");
-          const duration = Number(data.duration || first.duration || 0);
-          const durationText = duration > 0 ? Math.floor(duration / 60) + ":" + String(Math.floor(duration % 60)).padStart(2, "0") : "时长未知";
-          const pipelineText = data.pipeline === "ffmpeg-copy" ? "FFmpeg 原音轨" : "B站独立音频轨";
-          bvResultMeta.textContent = bvid + " · " + (data.total || items.length || 1) + " 集 · 成功 " + (data.success || successItems.length) + " · 失败 " + (data.failed || 0) + " · " + pipelineText + " · " + durationText;
-          if (bvResultFormat) bvResultFormat.textContent = (data.total || 1) > 1
-            ? "🎧 已逐集处理，每集使用自己的 cid · 可单独播放/加入歌单"
+          const total = data.total || items.length || 1;
+          const dur = Number(data.duration || 0);
+          const durText = dur > 0 ? Math.floor(dur/60) + ":" + String(Math.floor(dur%60)).padStart(2,"0") : "";
+          bvResultMeta.textContent = bvid + " · " + total + " 集" + (durText ? " · " + durText : "");
+          if (bvResultFormat) bvResultFormat.textContent = total > 1
+            ? "🎧 共 " + total + " 集 · 点击任意一集即加载并播放"
             : "🎧 音频已就绪 · 可直接播放";
-          renderBvParts(items.length ? items : [data]);
+          renderBvParts(items);
           bvResult.classList.add("show");
-          setBvStatus(
-            (data.total || 1) > 1
-              ? "处理完成啦：共 " + (data.total || items.length) + " 集，成功 " + (data.success || successItems.length) + " 集；失败的分P不会影响其它集。"
-              : "处理完成啦：音频已准备好，现在可以直接播放或加入歌单喵qwq。",
-            (data.failed || 0) ? "" : "success"
-          );
+          setBvStatus(total > 1
+            ? "分P列表已就绪：共 " + total + " 集，点击「播放」加载对应音频喵～"
+            : "分P列表已就绪，点击播放开始喵qwq～", "success");
+
+          // 单P视频自动加载该集音频
+          if (total === 1 && items[0]) {
+            const firstRow = bvParts.querySelector(".bv-part-btn");
+            const firstState = bvParts.querySelector(".bv-part-state");
+            if (firstRow) loadBvPartAudio(items[0], firstRow, firstState);
+          }
         })
         .catch(function(err) {
           bvSubmit.disabled = false;
@@ -2969,36 +2992,15 @@
     }
 
     function addCurrentBvSong() {
-      if (!currentBvAudioSong) return;
-      // 若当前结果存在多P，优先把所有成功分P加入歌单。
-      const rows = bvParts ? Array.from(bvParts.querySelectorAll(".bv-part-item")) : [];
-      // 从当前结果保存的对象读取更可靠，因此由 doBvExtract 挂到窗口变量。
-      const items = window.__lovezzBvItems || [];
-      const playable = items.filter(function(x){ return x && x.ok && x.audio; });
-      if (playable.length > 1) {
-        let added = 0;
-        playable.forEach(function(item){
-          const song = {
-            src: item.audio,
-            name: item.title || ("P" + item.page),
-            artist: "B站视频音频",
-            source: "bilibili",
-            id: item.cid || ("" + item.page),
-            _uid: "bilibili_" + (item.cid || item.page)
-          };
-          const idx = findOrAddSearchSong(song);
-          if (playlist.indexOf(idx) === -1) { playlist.push(idx); added++; }
-        });
+      if (currentBvAudioSong) {
+        const idx = findOrAddSearchSong(currentBvAudioSong);
+        if (playlist.indexOf(idx) === -1) playlist.push(idx);
         renderPlaylist();
         savePlaylists();
-        showToast("已加入 " + added + " 集 B站音频");
+        showToast("已加入 zz 的播放列表");
         return;
       }
-      const idx = findOrAddSearchSong(currentBvAudioSong);
-      if (playlist.indexOf(idx) === -1) playlist.push(idx);
-      renderPlaylist();
-      savePlaylists();
-      showToast("已加入 zz 的播放列表");
+      showToast("请先点击一集播放后再加入歌单喵～");
     }
 
     bvSubmit.addEventListener("click", doBvExtract);
