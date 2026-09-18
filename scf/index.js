@@ -578,7 +578,6 @@ async function handleBv(query, event) {
   const bvid = m ? m[0] : '';
   if (!bvid) return jsonResp(400, { error: '请输入正确的 BV 号或 B站视频链接' });
 
-  // 函数自身对外地址，用于把 B站音频直链包装成带 Referer 的代理地址
   const evHdrs = (event && event.headers) || {};
   const selfHost = evHdrs.Host || evHdrs.host || evHdrs.HOST || '1489001692-hrizux5309.ap-guangzhou.tencentscf.com';
   const fwdProto = evHdrs['x-forwarded-proto'] || evHdrs['X-Forwarded-Proto'];
@@ -596,89 +595,131 @@ async function handleBv(query, event) {
       return jsonResp(404, { error: '视频不存在、不可见或暂时无法获取信息' });
     }
 
-    const pages = Array.isArray(view.data.pages) ? view.data.pages : [];
-    const page = pages[0];
-    if (!page || !page.cid) {
-      return jsonResp(404, { error: '没有找到可播放的视频分P' });
-    }
+    const pages = Array.isArray(view.data.pages) ? view.data.pages.filter(p => p && p.cid) : [];
+    if (!pages.length) return jsonResp(404, { error: '没有找到可播放的视频分P' });
 
-    // ① 先请求 DURL 合并视频文件，供 FFmpeg 直接分离原音轨。
-    const durlApi =
-      `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
-      `&cid=${encodeURIComponent(page.cid)}&fnval=0&fnver=0&fourk=0`;
-    const durlResp = await httpsRequest(durlApi, {
-      headers: { 'User-Agent': UA, 'Referer': `https://www.bilibili.com/video/${bvid}/` },
-      timeout: UPSTREAM_TIMEOUT,
-    });
-    const durlJson = JSON.parse(durlResp.body || '{}');
-    const durlItem = durlJson && durlJson.data && Array.isArray(durlJson.data.durl) ? durlJson.data.durl[0] : null;
-    const videoUrl = durlItem && durlItem.url ? toHttps(durlItem.url) : '';
+    // 关键修复：每个 P 都使用自己的 cid 单独请求音频，不能只取 pages[0]。
+    async function extractOne(page) {
+      const pageNo = Number(page.page || 0);
+      const pageTitle = cleanText(page.part || `P${pageNo || 1}`);
+      const referer = `https://www.bilibili.com/video/${bvid}/?p=${pageNo || 1}`;
+      let audioUrl = '';
+      let pipeline = '';
 
-    // ② 再请求 DASH 独立音频轨（云函数环境通常没有 FFmpeg，这是主要可用路径）。
-    let audioUrl = '';
-    try {
-      const dashApi =
-        `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
-        `&cid=${encodeURIComponent(page.cid)}&fnval=16&fnver=0&fourk=1`;
-      const dashResp = await httpsRequest(dashApi, {
-        headers: { 'User-Agent': UA, 'Referer': `https://www.bilibili.com/video/${bvid}/` },
-        timeout: UPSTREAM_TIMEOUT,
-      });
-      const dashJson = JSON.parse(dashResp.body || '{}');
-      const audios = dashJson && dashJson.data && dashJson.data.dash && Array.isArray(dashJson.data.dash.audio)
-        ? dashJson.data.dash.audio : [];
-      // 取码率最高的独立音频轨。
-      const best = audios
-        .filter(a => a && (a.baseUrl || a.base_url))
-        .sort((x, y) => (y.bandwidth || 0) - (x.bandwidth || 0))[0];
-      if (best) audioUrl = toHttps(best.baseUrl || best.base_url);
-    } catch (e) {
-      // DASH 请求失败时继续尝试 FFmpeg 路径。
-    }
-
-    // ③ 如果拿到了视频文件且环境装有 FFmpeg，优先直接复制原音轨；输出较小才内联，
-    // 避免把超大的媒体文件塞进云函数 JSON 响应。失败则使用 DASH 独立音轨。
-    if (videoUrl) {
+      // 优先 DASH 独立音频轨。fnval=16 是 B站 DASH 音视频分离模式。
       try {
-        const ff = await extractAudioInline(videoUrl, {
-          referer: `https://www.bilibili.com/video/${bvid}/`,
-          maxBytes: 8 * 1024 * 1024,
+        const dashApi =
+          `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
+          `&cid=${encodeURIComponent(page.cid)}&fnval=16&fnver=0&fourk=1`;
+        const dashResp = await httpsRequest(dashApi, {
+          headers: { 'User-Agent': UA, 'Referer': referer },
+          timeout: UPSTREAM_TIMEOUT,
         });
-        if (ff && ff.dataUrl) {
-          return jsonResp(200, {
-            code: 1, bvid, cid: String(page.cid),
-            title: cleanText(view.data.title || page.part || bvid),
-            duration: Number(page.duration || 0),
-            audio: ff.dataUrl,
-            format: 'M4A (FFmpeg copy)',
-            pipeline: 'ffmpeg-copy',
-            note: '仅处理公开接口可取得且你有权使用的媒体；FFmpeg 使用 -c:a copy 分离原音轨，不重新编码。',
-          });
+        const dashJson = JSON.parse(dashResp.body || '{}');
+        const audios = dashJson && dashJson.data && dashJson.data.dash && Array.isArray(dashJson.data.dash.audio)
+          ? dashJson.data.dash.audio : [];
+        const best = audios
+          .filter(a => a && (a.baseUrl || a.base_url))
+          .sort((x, y) => (y.bandwidth || 0) - (x.bandwidth || 0))[0];
+        if (best) {
+          audioUrl = toHttps(best.baseUrl || best.base_url);
+          pipeline = 'direct-audio-proxy';
         }
-      } catch (e) {
-        // FFmpeg 不可用/输出过大时继续走公开独立音频轨，不影响正常播放。
+      } catch (_) {}
+
+      // DASH 不可用时，再尝试 DURL + FFmpeg；只在输出较小时内联，避免函数响应过大。
+      if (!audioUrl) {
+        try {
+          const durlApi =
+            `https://api.bilibili.com/x/player/playurl?bvid=${encodeURIComponent(bvid)}` +
+            `&cid=${encodeURIComponent(page.cid)}&fnval=0&fnver=0&fourk=0`;
+          const durlResp = await httpsRequest(durlApi, {
+            headers: { 'User-Agent': UA, 'Referer': referer },
+            timeout: UPSTREAM_TIMEOUT,
+          });
+          const durlJson = JSON.parse(durlResp.body || '{}');
+          const durlItem = durlJson && durlJson.data && Array.isArray(durlJson.data.durl)
+            ? durlJson.data.durl[0] : null;
+          const videoUrl = durlItem && durlItem.url ? toHttps(durlItem.url) : '';
+          if (videoUrl) {
+            const ff = await extractAudioInline(videoUrl, {
+              referer,
+              maxBytes: 8 * 1024 * 1024,
+            });
+            if (ff && ff.dataUrl) {
+              return {
+                ok: true,
+                page: pageNo,
+                cid: String(page.cid),
+                title: pageTitle,
+                duration: Number(page.duration || 0),
+                audio: ff.dataUrl,
+                format: 'M4A (FFmpeg copy)',
+                pipeline: 'ffmpeg-copy',
+              };
+            }
+          }
+        } catch (_) {}
       }
+
+      if (!audioUrl) {
+        return {
+          ok: false,
+          page: pageNo,
+          cid: String(page.cid),
+          title: pageTitle,
+          duration: Number(page.duration || 0),
+          error: '该分P没有获取到可直接使用的公开音频轨',
+        };
+      }
+
+      return {
+        ok: true,
+        page: pageNo,
+        cid: String(page.cid),
+        title: pageTitle,
+        duration: Number(page.duration || 0),
+        audio: `${selfBase}/api/bvaudio?u=${b64urlEncode(audioUrl)}`,
+        format: 'DASH audio (proxied)',
+        pipeline,
+      };
     }
 
-    if (!audioUrl) {
+    // 顺序处理，降低多个 CDN 请求同时发起导致的风控/超时概率；单个 P 失败不影响后续 P。
+    const items = [];
+    for (const page of pages) {
+      items.push(await extractOne(page));
+    }
+
+    const successItems = items.filter(x => x.ok && x.audio);
+    const failedItems = items.filter(x => !x.ok);
+    if (!successItems.length) {
       return jsonResp(403, {
-        error: '没有获取到可直接使用的媒体，可能需要登录、会员/付费权限或受到其它访问限制。',
+        error: '没有获取到任何可直接使用的公开音频。',
+        bvid,
+        total: items.length,
+        success: 0,
+        failed: failedItems.length,
+        items,
       });
     }
 
-    // ④ B站 DASH 独立音频轨：B站 CDN 校验 Referer，浏览器直连会 403，
-    // 因此包装成云函数代理地址（携带正确 Referer 并分片转发），可直接放进 <audio> 播放。
-    const proxiedAudio = `${selfBase}/api/bvaudio?u=${b64urlEncode(audioUrl)}`;
+    // 保留兼容字段：单P项目仍可直接使用 title/audio；多P则同时返回完整 items。
+    const first = successItems[0];
     return jsonResp(200, {
       code: 1,
       bvid,
-      cid: String(page.cid),
-      title: cleanText(view.data.title || page.part || bvid),
-      duration: Number(page.duration || 0),
-      audio: proxiedAudio,
-      format: 'DASH audio (proxied)',
-      pipeline: 'direct-audio-proxy',
-      note: 'B站公开独立音频轨经云函数代理转发，已携带正确 Referer，支持拖动与续播；不绕过访问限制。',
+      title: cleanText(view.data.title || bvid),
+      duration: Number(view.data.duration || first.duration || 0),
+      cid: first.cid,
+      audio: first.audio,
+      format: first.format,
+      pipeline: first.pipeline,
+      total: items.length,
+      success: successItems.length,
+      failed: failedItems.length,
+      items,
+      note: '每个分P使用独立 cid 获取音频；某一P失败不会中断其余分P。',
     });
   } catch (e) {
     return jsonResp(502, { error: '获取B站公开音轨失败，请稍后重试', detail: e.message });
