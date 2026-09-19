@@ -1175,6 +1175,52 @@
         max-height:330px;
         overflow:auto;
       }
+      .bv-parts-toolbar{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:8px 10px;
+        background:#fff0f5;
+        border-radius:12px;
+        position:sticky;
+        top:0;
+        z-index:2;
+      }
+      .bv-select-all{
+        display:flex;
+        align-items:center;
+        gap:4px;
+        font-size:12px;
+        color:#b9788e;
+        cursor:pointer;
+        white-space:nowrap;
+      }
+      .bv-select-all input{
+        width:16px;
+        height:16px;
+        accent-color:#d86f98;
+      }
+      .bv-toolbar-btn{
+        flex:1;
+        height:32px;
+        border:0;
+        border-radius:8px;
+        background:#f6a6bd;
+        color:#fff;
+        font-size:11px;
+        font-weight:600;
+        cursor:pointer;
+        white-space:nowrap;
+      }
+      .bv-toolbar-btn:disabled{
+        opacity:0.6;
+      }
+      .bv-part-cb{
+        width:16px;
+        height:16px;
+        accent-color:#d86f98;
+        flex-shrink:0;
+      }
       .bv-part-item{
         display:flex;
         align-items:center;
@@ -2199,10 +2245,6 @@
           <div class="bv-result-title" id="bvResultTitle"></div>
           <div class="bv-result-meta" id="bvResultMeta"></div>
           <div class="bv-result-format" id="bvResultFormat">🎧 音频已就绪</div>
-          <div class="bv-result-actions">
-            <button class="bv-play-btn" id="bvPlayBtn">▶ 播放第一集</button>
-            <button class="bv-add-btn" id="bvAddBtn">＋ 全部加入歌单</button>
-          </div>
           <div class="bv-parts" id="bvParts"></div>
         </div>
       </div>
@@ -2882,17 +2924,65 @@
     }
 
     // 当前 BV 提取的全局状态
-    window.__lovezzBvState = { bvid: '', items: [], loaded: {} };
+    window.__lovezzBvState = { bvid: '', items: [], loaded: {}, selected: {} };
 
     function renderBvParts(items) {
       if (!bvParts) return;
       bvParts.innerHTML = "";
+      // 操作栏
+      const toolbar = document.createElement("div");
+      toolbar.className = "bv-parts-toolbar";
+      const selectAll = document.createElement("label");
+      selectAll.className = "bv-select-all";
+      selectAll.innerHTML = '<input type="checkbox" id="bvSelectAll"> <span>全选</span>';
+      const btnPlaylist = document.createElement("button");
+      btnPlaylist.className = "bv-toolbar-btn";
+      btnPlaylist.textContent = "▶ 加入播放列表";
+      const btnPlaylist2 = document.createElement("button");
+      btnPlaylist.className = "bv-toolbar-btn";
+      btnPlaylist2.textContent = "📁 加入歌单";
+      toolbar.appendChild(selectAll);
+      toolbar.appendChild(btnPlaylist);
+      toolbar.appendChild(btnPlaylist2);
+      bvParts.appendChild(toolbar);
+
+      // 全选
+      const selectAllCb = selectAll.querySelector("input");
+      selectAllCb.addEventListener("change", function() {
+        const checked = selectAllCb.checked;
+        window.__lovezzBvState.selected = {};
+        (items || []).forEach(function(item, i) {
+          const page = item.page || (i + 1);
+          window.__lovezzBvState.selected[page] = checked;
+        });
+        bvParts.querySelectorAll(".bv-part-item input[type=checkbox]").forEach(function(cb) {
+          cb.checked = checked;
+        });
+      });
+
+      // 批量加入播放列表
+      btnPlaylist.addEventListener("click", function() {
+        batchLoadSelected("playlist", btnPlaylist);
+      });
+      // 批量加入歌单
+      btnPlaylist2.addEventListener("click", function() {
+        batchLoadSelected("playlist-picker", btnPlaylist2);
+      });
+
       (items || []).forEach(function(item, i) {
         const row = document.createElement("div");
         row.className = "bv-part-item";
+        const page = item.page || (i + 1);
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "bv-part-cb";
+        cb.addEventListener("change", function() {
+          window.__lovezzBvState.selected[page] = cb.checked;
+        });
+        row.appendChild(cb);
         const idx = document.createElement("div");
         idx.className = "bv-part-index";
-        idx.textContent = "P" + (item.page || (i + 1));
+        idx.textContent = "P" + page;
         const name = document.createElement("div");
         name.className = "bv-part-name";
         name.title = item.title || "未命名分P";
@@ -2911,37 +3001,123 @@
           loadBvPartAudio(item, play, state, true);
         });
         row.appendChild(play);
-
-        const add = document.createElement("button");
-        add.className = "bv-part-btn";
-        add.textContent = "＋";
-        add.title = "加入歌单";
-        add.addEventListener("click", function() {
-          loadBvPartAudio(item, add, state, false);
-        });
-        row.appendChild(add);
         bvParts.appendChild(row);
       });
     }
 
+    // 批量加载选中的集数
+    function batchLoadSelected(target, btn) {
+      const state = window.__lovezzBvState;
+      const selectedPages = Object.keys(state.selected).filter(function(p) { return state.selected[p]; });
+      if (!selectedPages.length) { showToast("先勾选要加入的分P喵～"); return; }
+      if (btn) { btn.disabled = true; btn.textContent = "加载中 0/" + selectedPages.length; }
+      let done = 0, ok = 0, fail = 0;
+      const loadedSongs = [];
+
+      function next(i) {
+        if (i >= selectedPages.length) {
+          if (btn) { btn.disabled = false; btn.textContent = target === "playlist" ? "▶ 加入播放列表" : "📁 加入歌单"; }
+          setBvStatus("批量加载完成：成功 " + ok + "，失败 " + fail, fail ? "" : "success");
+          if (target === "playlist") {
+            loadedSongs.forEach(function(song) {
+              const idx2 = findOrAddSearchSong(song);
+              if (playlist.indexOf(idx2) === -1) playlist.push(idx2);
+            });
+            renderPlaylist();
+            savePlaylists();
+            showToast("已加入 " + ok + " 集到播放列表");
+          } else if (target === "playlist-picker") {
+            // 弹出歌单选择，把已加载的歌加入
+            pickPlaylistAndAdd(loadedSongs);
+          }
+          return;
+        }
+        const page = Number(selectedPages[i]);
+        const item = state.items.find(function(x) { return x.page === page; });
+        if (!item) { fail++; next(i + 1); return; }
+        fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(state.bvid) + "&p=" + page)
+          .then(function(r){ return r.json(); })
+          .then(function(data) {
+            done++;
+            if (btn) btn.textContent = "加载中 " + done + "/" + selectedPages.length;
+            if (data.item && data.item.audio) {
+              ok++;
+              loadedSongs.push({
+                src: data.item.audio,
+                name: data.item.title || item.title || ("P" + page),
+                artist: "B站视频音频",
+                source: "bilibili",
+                id: data.item.cid || item.cid || ("" + page),
+                _uid: "bilibili_" + (data.item.cid || item.cid || page)
+              });
+            } else { fail++; }
+            next(i + 1);
+          })
+          .catch(function() { fail++; next(i + 1); });
+      }
+      next(0);
+    }
+
+    // 弹出歌单选择并批量加入
+    function pickPlaylistAndAdd(songs) {
+      addToPlaylistList.innerHTML = "";
+      Object.values(userPlaylists).forEach(function(pl) {
+        const item = document.createElement("div");
+        item.className = "add-to-playlist-item";
+        item.innerHTML = '<span class="name">' + (pl.isDefault ? "💖 " : "📁 ") + escapeHtml(pl.name) + '</span><span class="count">' + pl.songs.length + ' 首</span>';
+        item.addEventListener("click", function() {
+          let added = 0;
+          songs.forEach(function(song) {
+            const songRef = { type: "search", id: song.id, name: song.name, artist: song.artist || "", source: "bilibili" };
+            const exists = pl.songs.some(function(s) {
+              return typeof s === "object" && s.type === "search" && s.id === song.id;
+            });
+            if (!exists) { pl.songs.push(songRef); added++; }
+          });
+          savePlaylists();
+          addToPlaylistModal.classList.remove("show");
+          showToast("已加入 " + added + " 集到「" + pl.name + "」");
+        });
+        addToPlaylistList.appendChild(item);
+      });
+      const newItem = document.createElement("div");
+      newItem.className = "add-to-playlist-item";
+      newItem.innerHTML = '<span class="name" style="color:#d86f98;">+ 新建歌单qwq</span><span class="count"></span>';
+      newItem.addEventListener("click", function() {
+        addToPlaylistModal.classList.remove("show");
+        const name = prompt("请输入新歌单名称：");
+        if (name && name.trim()) {
+          const newId = createUserPlaylist(name.trim());
+          const pl = userPlaylists[newId];
+          songs.forEach(function(song) {
+            pl.songs.push({ type: "search", id: song.id, name: song.name, artist: song.artist || "", source: "bilibili" });
+          });
+          savePlaylists();
+          showToast("已加入 " + songs.length + " 集到「" + name.trim() + "」");
+        }
+      });
+      addToPlaylistList.appendChild(newItem);
+      addToPlaylistModal.classList.add("show");
+    }
+
     // 逐集加载音频；play=true 播放，play=false 只加入歌单
-    function loadBvPartAudio(item, btn, state, play) {
+    function loadBvPartAudio(item, btn, stateElm, play) {
       const bvid = window.__lovezzBvState.bvid;
       if (!bvid) return;
       const origText = btn ? btn.textContent : "";
       if (btn) { btn.disabled = true; btn.textContent = "…"; }
-      if (state) { state.className = "bv-part-state loading"; state.textContent = "…"; }
+      if (stateElm) { stateElm.className = "bv-part-state loading"; stateElm.textContent = "…"; }
       fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(bvid) + "&p=" + (item.page || 1))
         .then(function(r){ return r.json(); })
         .then(function(data) {
           if (data.error || !data.item) {
             if (btn) { btn.disabled = false; btn.textContent = origText; }
-            if (state) { state.className = "bv-part-state fail"; state.textContent = "✕"; }
+            if (stateElm) { stateElm.className = "bv-part-state fail"; stateElm.textContent = "✕"; }
             setBvStatus(data.error || "该集加载失败", "error");
             return;
           }
           const audioItem = data.item;
-          if (state) { state.className = "bv-part-state ok"; state.textContent = "✓"; }
+          if (stateElm) { stateElm.className = "bv-part-state ok"; stateElm.textContent = "✓"; }
           if (btn) { btn.disabled = false; btn.textContent = origText; }
           const song = {
             src: audioItem.audio,
@@ -2960,12 +3136,12 @@
             switchAudio(playlist.indexOf(idx2));
             closeSearchPanel();
           } else {
-            showToast("已加入歌单：" + (song.name || ""));
+            showToast("已加入播放列表：" + (song.name || ""));
           }
         })
         .catch(function() {
           if (btn) { btn.disabled = false; btn.textContent = origText; }
-          if (state) { state.className = "bv-part-state fail"; state.textContent = "✕"; }
+          if (stateElm) { stateElm.className = "bv-part-state fail"; stateElm.textContent = "✕"; }
         });
     }
 
@@ -3037,16 +3213,6 @@
     bvInput.addEventListener("keydown", function(e) {
       if (e.key === "Enter") doBvExtract();
     });
-    bvPlayBtn.addEventListener("click", function() {
-      if (!currentBvAudioSong) return;
-      const idx = findOrAddSearchSong(currentBvAudioSong);
-      if (playlist.indexOf(idx) === -1) playlist.push(idx);
-      renderPlaylist();
-      savePlaylists();
-      switchAudio(playlist.indexOf(idx));
-      closeSearchPanel();
-    });
-    bvAddBtn.addEventListener("click", addCurrentBvSong);
 
     // 显示搜索状态（加载中/空/错误）
     function showSearchStatus(html) {
