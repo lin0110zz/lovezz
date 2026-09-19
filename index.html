@@ -3051,7 +3051,11 @@
       const spacer = document.createElement("div");
       spacer.style.height = (total * ITEM_H) + "px";
       const viewport = document.createElement("div");
-      viewport.style.position = "relative";
+      viewport.style.position = "absolute";
+      viewport.style.top = "0";
+      viewport.style.left = "0";
+      viewport.style.right = "0";
+      viewport.style.pointerEvents = "none";
       scroller.appendChild(spacer);
       scroller.appendChild(viewport);
       bvParts.appendChild(scroller);
@@ -3071,6 +3075,7 @@
           row.style.top = (i * ITEM_H) + "px";
           row.style.left = "0";
           row.style.right = "0";
+          row.style.pointerEvents = "auto";
           const cb = document.createElement("input");
           cb.type = "checkbox";
           cb.className = "bv-part-cb";
