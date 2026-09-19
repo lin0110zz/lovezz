@@ -3404,6 +3404,7 @@
         cb.type = "checkbox";
         cb.className = "imp-cb";
         cb.addEventListener("change", function() { selected[i] = cb.checked; });
+        cb.addEventListener("click", function(e) { e.stopPropagation(); });
         const info = document.createElement("div");
         info.className = "search-result-info";
         info.innerHTML =
