@@ -3344,47 +3344,133 @@
           showSearchStatus('<span class="icon">😢</span>！！！导入大失败：网络错误<br><br>' + err.message);
         });
     }
-    // 渲染导入的歌单（顶部栏+歌曲列表）
+    // 渲染导入的歌单（多选模式）
     function renderImportedPlaylist(data) {
       searchResults.innerHTML = "";
-      // 顶部栏
-      const header = document.createElement("div");
-      header.className = "playlist-result-header";
-      header.innerHTML =
-        '<div class="playlist-result-info">' +
-          '<div class="playlist-result-name">📋 ' + escapeHtml(data.name || "网易云歌单") + '</div>' +
-          '<div class="playlist-result-count">共 ' + data.count + ' 首歌</div>' +
-        '</div>' +
-        '<button class="playlist-add-all-btn">全部加入播放列表qwq</button>';
-      header.querySelector(".playlist-add-all-btn").addEventListener("click", function(e) {
-        e.stopPropagation();
-        addAllToPlaylist(data.songs);
+      const importedSongs = data.songs || [];
+      const selected = {};
+      // 顶部工具栏
+      const toolbar = document.createElement("div");
+      toolbar.className = "bv-parts-toolbar";
+      const selectAll = document.createElement("label");
+      selectAll.className = "bv-select-all";
+      selectAll.innerHTML = '<input type="checkbox" class="imp-select-all"> <span>全选</span>';
+      const btnPlaylist = document.createElement("button");
+      btnPlaylist.className = "bv-toolbar-btn";
+      btnPlaylist.textContent = "▶ 加入播放列表";
+      const btnAddPl = document.createElement("button");
+      btnAddPl.className = "bv-toolbar-btn";
+      btnAddPl.textContent = "📁 加入歌单";
+      toolbar.appendChild(selectAll);
+      toolbar.appendChild(btnPlaylist);
+      toolbar.appendChild(btnAddPl);
+      searchResults.appendChild(toolbar);
+
+      const selectAllCb = selectAll.querySelector("input");
+      selectAllCb.addEventListener("change", function() {
+        const checked = selectAllCb.checked;
+        importedSongs.forEach(function(song, i) { selected[i] = checked; });
+        searchResults.querySelectorAll(".imp-cb").forEach(function(cb) { cb.checked = checked; });
       });
-      searchResults.appendChild(header);
-      // 歌曲列表（复用搜索结果项）
-      data.songs.forEach(function(song) {
+
+      // 批量加入播放列表
+      btnPlaylist.addEventListener("click", function() {
+        const idxs = Object.keys(selected).filter(function(i) { return selected[i]; });
+        if (!idxs.length) { showToast("先勾选歌曲喵～"); return; }
+        let added = 0;
+        idxs.forEach(function(i) {
+          const song = importedSongs[Number(i)];
+          const songIdx = findOrAddSearchSong(song);
+          if (playlist.indexOf(songIdx) === -1) { playlist.push(songIdx); added++; }
+        });
+        renderPlaylist();
+        savePlaylists();
+        showToast("已加入 " + added + " 首到播放列表");
+      });
+
+      // 批量加入歌单
+      btnAddPl.addEventListener("click", function() {
+        const idxs = Object.keys(selected).filter(function(i) { return selected[i]; });
+        if (!idxs.length) { showToast("先勾选歌曲喵～"); return; }
+        const songsToAdd = idxs.map(function(i) { return importedSongs[Number(i)]; });
+        pickImportedSongsToPlaylist(songsToAdd);
+      });
+
+      // 歌曲列表
+      importedSongs.forEach(function(song, i) {
         const item = document.createElement("div");
         item.className = "search-result-item";
-        item.innerHTML =
-          '<div class="search-result-info">' +
-            '<div class="search-result-name">' + escapeHtml(song.name) + '</div>' +
-            '<div class="search-result-artist">' + escapeHtml(song.artist || "未知歌手") + '</div>' +
-          '</div>' +
-          '<div class="search-result-actions">' +
-            '<button class="search-action-btn play-btn" title="播放">▶</button>' +
-            '<button class="search-action-btn add-btn" title="添加到歌单">+</button>' +
-          '</div>';
-        item.querySelector(".play-btn").addEventListener("click", function(e) {
-          e.stopPropagation();
-          playSearchSong(song);
-        });
-        item.querySelector(".add-btn").addEventListener("click", function(e) {
-          e.stopPropagation();
-          showAddToPlaylistModal(song);
-        });
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "imp-cb";
+        cb.addEventListener("change", function() { selected[i] = cb.checked; });
+        const info = document.createElement("div");
+        info.className = "search-result-info";
+        info.innerHTML =
+          '<div class="search-result-name">' + escapeHtml(song.name) + '</div>' +
+          '<div class="search-result-artist">' + escapeHtml(song.artist || "未知歌手") + '</div>';
+        const actions = document.createElement("div");
+        actions.className = "search-result-actions";
+        const playBtn = document.createElement("button");
+        playBtn.className = "search-action-btn play-btn";
+        playBtn.textContent = "▶";
+        playBtn.title = "播放";
+        playBtn.addEventListener("click", function(e) { e.stopPropagation(); playSearchSong(song); });
+        const addBtn = document.createElement("button");
+        addBtn.className = "search-action-btn add-btn";
+        addBtn.textContent = "+";
+        addBtn.title = "添加到歌单";
+        addBtn.addEventListener("click", function(e) { e.stopPropagation(); showAddToPlaylistModal(song); });
+        actions.appendChild(playBtn);
+        actions.appendChild(addBtn);
+        item.appendChild(cb);
+        item.appendChild(info);
+        item.appendChild(actions);
         item.addEventListener("click", function() { playSearchSong(song); });
         searchResults.appendChild(item);
       });
+    }
+
+    // 批量把导入的歌曲加入歌单
+    function pickImportedSongsToPlaylist(songs) {
+      addToPlaylistList.innerHTML = "";
+      Object.values(userPlaylists).forEach(function(pl) {
+        const item = document.createElement("div");
+        item.className = "add-to-playlist-item";
+        item.innerHTML = '<span class="name">' + (pl.isDefault ? "💖 " : "📁 ") + escapeHtml(pl.name) + '</span><span class="count">' + pl.songs.length + ' 首</span>';
+        item.addEventListener("click", function() {
+          let added = 0;
+          songs.forEach(function(song) {
+            const songRef = { type: "search", id: song.id, name: song.name, artist: song.artist || "", source: song.source || "kuwo" };
+            const exists = pl.songs.some(function(s) {
+              return typeof s === "object" && s.type === "search" && s.id === song.id;
+            });
+            if (!exists) { pl.songs.push(songRef); added++; }
+          });
+          savePlaylists();
+          addToPlaylistModal.classList.remove("show");
+          showToast("已加入 " + added + " 首到「" + pl.name + "」");
+        });
+        addToPlaylistList.appendChild(item);
+      });
+      const newItem = document.createElement("div");
+      newItem.className = "add-to-playlist-item";
+      newItem.innerHTML = '<span class="name" style="color:#d86f98;">+ 新建歌单qwq</span><span class="count"></span>';
+      newItem.addEventListener("click", function() {
+        addToPlaylistModal.classList.remove("show");
+        const name = prompt("请输入新歌单名称：");
+        if (name && name.trim()) {
+          const newId = createUserPlaylist(name.trim());
+          const pl = userPlaylists[newId];
+          songs.forEach(function(song) {
+            pl.songs.push({ type: "search", id: song.id, name: song.name, artist: song.artist || "", source: song.source || "kuwo" });
+          });
+          savePlaylists();
+          showToast("已加入 " + songs.length + " 首到「" + name.trim() + "」");
+        }
+      });
+      addToPlaylistList.appendChild(newItem);
+      addToPlaylistModal.classList.add("show");
     }
     // 全部加入播放列表
     function addAllToPlaylist(songs) {
