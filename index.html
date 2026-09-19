@@ -3154,7 +3154,7 @@
       }
       bvSubmit.disabled = true;
       resetBvResult();
-      window.__lovezzBvState = { bvid: bvid, items: [], loaded: {} };
+      window.__lovezzBvState = { bvid: bvid, items: [], loaded: {}, selected: {} };
       setBvStatus("正在读取分P列表…");
       fetch((API_BASE || "") + "/api/bv?bvid=" + encodeURIComponent(bvid))
         .then(function(resp) {
