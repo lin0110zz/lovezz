@@ -2060,8 +2060,8 @@
           padding-bottom: 20px;
         }
         .bv-virtual-scroller{
-          height: calc(100dvh - 320px);
-          min-height: 200px;
+          height: 250px;
+          max-height: 40vh;
         }
       }
 
@@ -3422,6 +3422,8 @@
       searchTabs.forEach(function(t) { t.classList.remove("active"); });
       searchTabs[0].classList.add("active");
       currentSearchTab = "search";
+      searchResults.style.display = "";
+      bvPanel.style.display = "none";
       showSearchStatus('<span class="search-loading"></span><br><br>正在解析歌单中ing...');
 
       const url = (API_BASE || "") + "/api/playlist?id=" + encodeURIComponent(raw);
