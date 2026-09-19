@@ -259,15 +259,42 @@
         border-radius: 10px;
         background: #f7d6e0;
         cursor: pointer;
-        overflow: hidden;
+        overflow: visible;
         margin-bottom: 14px;
+        position: relative;
+        padding: 10px 0;
+        background-clip: content-box;
+        touch-action: none;
       }
 
       .progress{
         width: 0%;
-        height: 100%;
+        height: 6px;
         background: linear-gradient(90deg,#f3a0b9,#df7f9f);
         border-radius: 10px;
+        position: relative;
+        transition: width 0.15s ease-out;
+      }
+      .progress::after{
+        content: '';
+        position: absolute;
+        right: -6px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(220,100,140,0.4);
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .progress-container:active .progress::after,
+      .progress.dragging::after{
+        opacity: 1;
+      }
+      .progress.dragging{
+        transition: none;
       }
 
 
@@ -2472,8 +2499,10 @@
     /*更新进度*/
     audio.addEventListener("timeupdate",
             ()=>{
-      const percentage = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
-      progress.style.width = percentage + "%";
+      if (!isDraggingProgress) {
+        const percentage = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+        progress.style.width = percentage + "%";
+      }
       currenTime .innerHTML=formatTime(
               audio.currentTime
       );
@@ -2491,17 +2520,56 @@
       );
     }
     )
-    /*点击进度条跳转*/
-    progressContainer.addEventListener(
-            "click",(e)=>{
-              const width=progressContainer.clientWidth;
-              const clickX=e.offsetX;
-              audio.currentTime=(
-                      clickX/width
-              )
-              * audio.duration;
-            }
-    );
+    /*进度条拖动跳转（触屏+鼠标）*/
+    let isDraggingProgress = false;
+    function seekFromEvent(e) {
+      const rect = progressContainer.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      progress.style.width = (ratio * 100) + "%";
+      return ratio;
+    }
+    progressContainer.addEventListener("click", function(e) {
+      if (isDraggingProgress) return;
+      const ratio = seekFromEvent(e);
+      if (audio.duration) audio.currentTime = ratio * audio.duration;
+    });
+    progressContainer.addEventListener("touchstart", function(e) {
+      isDraggingProgress = true;
+      progress.classList.add("dragging");
+      seekFromEvent(e);
+    }, { passive: true });
+    progressContainer.addEventListener("touchmove", function(e) {
+      if (!isDraggingProgress) return;
+      seekFromEvent(e);
+    }, { passive: true });
+    progressContainer.addEventListener("touchend", function(e) {
+      if (!isDraggingProgress) return;
+      isDraggingProgress = false;
+      progress.classList.remove("dragging");
+      const rect = progressContainer.getBoundingClientRect();
+      const clientX = (e.changedTouches && e.changedTouches[0].clientX) || e.clientX;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (audio.duration) audio.currentTime = ratio * audio.duration;
+    });
+    // 桌面端鼠标拖动
+    progressContainer.addEventListener("mousedown", function(e) {
+      isDraggingProgress = true;
+      progress.classList.add("dragging");
+      seekFromEvent(e);
+    });
+    document.addEventListener("mousemove", function(e) {
+      if (!isDraggingProgress) return;
+      seekFromEvent(e);
+    });
+    document.addEventListener("mouseup", function(e) {
+      if (!isDraggingProgress) return;
+      isDraggingProgress = false;
+      progress.classList.remove("dragging");
+      const rect = progressContainer.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if (audio.duration) audio.currentTime = ratio * audio.duration;
+    });
 
     /*自动播放下一首（供 ended 和 timeupdate 共同调用，解决息屏后台 ended 不触发的问题）*/
     function handleAutoNext() {
