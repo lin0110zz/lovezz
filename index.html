@@ -1221,6 +1221,12 @@
         accent-color:#d86f98;
         flex-shrink:0;
       }
+      .bv-virtual-scroller{
+        position:relative;
+        height:300px;
+        overflow-y:auto;
+        -webkit-overflow-scrolling:touch;
+      }
       .bv-part-item{
         display:flex;
         align-items:center;
@@ -2027,6 +2033,10 @@
           max-height: none;
           overflow: visible;
           padding-bottom: 20px;
+        }
+        .bv-virtual-scroller{
+          height: calc(100dvh - 320px);
+          min-height: 200px;
         }
       }
 
@@ -2961,54 +2971,78 @@
           const page = item.page || (i + 1);
           window.__lovezzBvState.selected[page] = checked;
         });
-        bvParts.querySelectorAll(".bv-part-item input[type=checkbox]").forEach(function(cb) {
-          cb.checked = checked;
-        });
+        renderVirtualItems();
       });
 
-      // 批量加入播放列表
-      btnPlaylist.addEventListener("click", function() {
-        batchLoadSelected("playlist", btnPlaylist);
-      });
-      // 批量加入歌单
-      btnPlaylist2.addEventListener("click", function() {
-        batchLoadSelected("playlist-picker", btnPlaylist2);
-      });
+      btnPlaylist.addEventListener("click", function() { batchLoadSelected("playlist", btnPlaylist); });
+      btnPlaylist2.addEventListener("click", function() { batchLoadSelected("playlist-picker", btnPlaylist2); });
 
-      (items || []).forEach(function(item, i) {
-        const row = document.createElement("div");
-        row.className = "bv-part-item";
-        const page = item.page || (i + 1);
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.className = "bv-part-cb";
-        cb.addEventListener("change", function() {
-          window.__lovezzBvState.selected[page] = cb.checked;
-        });
-        row.appendChild(cb);
-        const idx = document.createElement("div");
-        idx.className = "bv-part-index";
-        idx.textContent = "P" + page;
-        const name = document.createElement("div");
-        name.className = "bv-part-name";
-        name.title = item.title || "未命名分P";
-        name.textContent = item.title || "未命名分P";
-        const state = document.createElement("div");
-        state.className = "bv-part-state";
-        state.textContent = "";
-        row.appendChild(idx);
-        row.appendChild(name);
-        row.appendChild(state);
+      // 虚拟滚动容器
+      const ITEM_H = 48;
+      const total = (items || []).length;
+      const scroller = document.createElement("div");
+      scroller.className = "bv-virtual-scroller";
+      const spacer = document.createElement("div");
+      spacer.style.height = (total * ITEM_H) + "px";
+      const viewport = document.createElement("div");
+      viewport.style.position = "relative";
+      scroller.appendChild(spacer);
+      scroller.appendChild(viewport);
+      bvParts.appendChild(scroller);
 
-        const play = document.createElement("button");
-        play.className = "bv-part-btn";
-        play.textContent = "播放";
-        play.addEventListener("click", function() {
-          loadBvPartAudio(item, play, state, true);
-        });
-        row.appendChild(play);
-        bvParts.appendChild(row);
+      function renderVirtualItems() {
+        const st = scroller.scrollTop;
+        const ch = scroller.clientHeight;
+        let start = Math.max(0, Math.floor(st / ITEM_H) - 3);
+        let end = Math.min(total - 1, Math.ceil((st + ch) / ITEM_H) + 3);
+        viewport.innerHTML = "";
+        for (let i = start; i <= end; i++) {
+          const item = items[i];
+          const page = item.page || (i + 1);
+          const row = document.createElement("div");
+          row.className = "bv-part-item";
+          row.style.position = "absolute";
+          row.style.top = (i * ITEM_H) + "px";
+          row.style.left = "0";
+          row.style.right = "0";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "bv-part-cb";
+          cb.checked = !!window.__lovezzBvState.selected[page];
+          cb.addEventListener("change", function() {
+            window.__lovezzBvState.selected[page] = cb.checked;
+          });
+          cb.addEventListener("click", function(e) { e.stopPropagation(); });
+          row.appendChild(cb);
+          const idx = document.createElement("div");
+          idx.className = "bv-part-index";
+          idx.textContent = "P" + page;
+          const name = document.createElement("div");
+          name.className = "bv-part-name";
+          name.title = item.title || "未命名分P";
+          name.textContent = item.title || "未命名分P";
+          const state = document.createElement("div");
+          state.className = "bv-part-state";
+          state.textContent = "";
+          row.appendChild(idx);
+          row.appendChild(name);
+          row.appendChild(state);
+          const play = document.createElement("button");
+          play.className = "bv-part-btn";
+          play.textContent = "播放";
+          play.addEventListener("click", function() {
+            loadBvPartAudio(item, play, state, true);
+          });
+          row.appendChild(play);
+          viewport.appendChild(row);
+        }
+      }
+      let scrollTimer = null;
+      scroller.addEventListener("scroll", function() {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(renderVirtualItems, 50);
       });
+      renderVirtualItems();
     }
 
     // 批量加载选中的集数
