@@ -2805,7 +2805,13 @@
       const songId = "search_" + source + "_" + song.id;
       // 先查找是否已存在
       for (let i = 0; i < allSongs.length; i++) {
-        if (allSongs[i]._uid === songId) return i;
+        if (allSongs[i]._uid === songId) {
+          // 如果传入了完整 URL src 而现有的不是，更新为直接播放地址
+          if (song.src && /^https?:\/\//i.test(song.src) && !/^https?:\/\//i.test(allSongs[i].src || "")) {
+            allSongs[i].src = song.src;
+          }
+          return i;
+        }
       }
       // 构造播放地址：若已给出可直接播放的完整 URL（如 B站 BV 音频经云函数代理的 /api/bvaudio 地址），
       // 则原样使用以支持二进制流与拖动；否则用带来源与歌名/歌手的 /api/play 供后端跨平台兜底。
@@ -3068,7 +3074,7 @@
         item.addEventListener("click", function() {
           let added = 0;
           songs.forEach(function(song) {
-            const songRef = { type: "search", id: song.id, name: song.name, artist: song.artist || "", source: "bilibili" };
+            const songRef = { type: "search", id: song.id, name: song.name, artist: song.artist || "", source: "bilibili", src: song.src };
             const exists = pl.songs.some(function(s) {
               return typeof s === "object" && s.type === "search" && s.id === song.id;
             });
@@ -3090,7 +3096,7 @@
           const newId = createUserPlaylist(name.trim());
           const pl = userPlaylists[newId];
           songs.forEach(function(song) {
-            pl.songs.push({ type: "search", id: song.id, name: song.name, artist: song.artist || "", source: "bilibili" });
+            pl.songs.push({ type: "search", id: song.id, name: song.name, artist: song.artist || "", source: "bilibili", src: song.src });
           });
           savePlaylists();
           showToast("已加入 " + songs.length + " 集到「" + name.trim() + "」");
@@ -3558,8 +3564,8 @@
             // 搜索歌曲
             songName = songRef.name;
             songArtist = songRef.artist || "在线歌曲";
-            // 确保在 allSongs 里
-            songIdx = findOrAddSearchSong({ id: songRef.id, name: songRef.name, artist: songRef.artist, source: songRef.source || "kuwo" });
+            // 确保在 allSongs 里（带上已有的 src，避免重新搜索）
+            songIdx = findOrAddSearchSong({ id: songRef.id, name: songRef.name, artist: songRef.artist, source: songRef.source || "kuwo", src: songRef.src });
           }
 
           const item = document.createElement("div");
